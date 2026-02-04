@@ -1,0 +1,25 @@
+.headerSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* margin-bottom: 36px; */
+}
+
+.actionsContainer {
+  display: flex;
+  gap: 16px;
+}
+
+@media (max-width: 767px) {
+  .headerSection {
+    display: block;
+  }
+
+  .BtnGrp2 {
+    margin-top: 10px;
+  }
+
+  .BtnGrp2 > div:first-child {
+    width: 100%;
+  }
+}

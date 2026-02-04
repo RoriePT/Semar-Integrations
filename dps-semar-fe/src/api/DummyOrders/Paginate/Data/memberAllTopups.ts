@@ -1,0 +1,38 @@
+export const memberAllTopups = [
+  {
+    id: 1,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "assigned",
+    channel: "Netbanking",
+    commission: 23,
+    quotaCredit: 3444,
+  },
+  {
+    id: 2,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "submitted",
+    channel: "Netbanking",
+    commission: 23,
+    quotaCredit: 3444,
+  },
+  {
+    id: 3,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "complete",
+    channel: "Netbanking",
+    commission: 23,
+    quotaCredit: 3444,
+  },
+  {
+    id: 4,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "rejected",
+    channel: "Netbanking",
+    commission: 23,
+    quotaCredit: 0,
+  },
+];

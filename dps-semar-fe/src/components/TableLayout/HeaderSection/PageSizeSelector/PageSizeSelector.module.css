@@ -1,0 +1,47 @@
+.arrowIcon {
+  color: grey;
+  position: absolute;
+  right: 10px;
+  margin-left: 8px;
+}
+
+.activeIcon {
+  color: #a85706;
+  position: absolute;
+  right: 10px;
+  margin-left: 8px;
+}
+
+.pageSizeButton {
+  color: #000;
+  border: 1px solid #cbd5e1;
+  position: relative;
+  transition: border-color 0.3s ease;
+  font-weight: 400;
+  background-color: #fff;
+}
+
+.pageSizeButton > span:first-child {
+  justify-content: flex-start;
+}
+
+.pageSizeButton:hover,
+.pageSizeButton:focus {
+  color: #000;
+  border-color: #cbd5e1;
+}
+
+.buttonActive {
+  border: 1px solid #a85706;
+  color: #000;
+  font-weight: 400;
+  background-color: #fff;
+}
+
+.buttonActive:hover {
+  color: #000;
+}
+
+.buttonActive > span:first-child {
+  justify-content: flex-start;
+}

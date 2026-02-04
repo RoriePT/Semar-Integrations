@@ -1,0 +1,8 @@
+.filterBtn input {
+  border-color: #cbd5e1;
+  height: 48px;
+}
+
+.filterBtn input:focus {
+  border-color: #a85706;
+}

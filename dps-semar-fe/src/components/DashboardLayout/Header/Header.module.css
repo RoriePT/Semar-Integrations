@@ -1,0 +1,30 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.HeaderLogo {
+  width: 30px;
+}
+
+
+@media (max-width: 1190px) {
+  .header {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  @media (max-width: 767px) {
+    .HeaderTitle {
+      font-size: 18px;
+    }
+
+    .HeaderLogo {
+      height: 24px;
+      width: 24px;
+    }
+  }
+}

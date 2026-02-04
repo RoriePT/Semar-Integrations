@@ -1,0 +1,77 @@
+import { Identity } from 'src/identity/entities/identity.entity';
+import { OrderType, UserTypeForTransactionUpdates } from 'src/utils/enum/enum';
+import {
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Entity,
+} from 'typeorm';
+
+export enum FundRecordType {
+  TRANSACTION = 'TRANSACTION',
+  FROZEN = 'FROZEN',
+}
+
+@Entity()
+export class FundRecord {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ nullable: true })
+  orderType: OrderType;
+
+  @Column({ nullable: true })
+  name: string;
+
+  @Column()
+  balanceType: UserTypeForTransactionUpdates;
+
+  @Column()
+  systemOrderId: string;
+
+  @Column({ nullable: true })
+  merchantOrderId: string;
+
+  @Column({ type: 'float', nullable: true })
+  amount: number;
+
+  @Column({ type: 'float', nullable: true })
+  serviceFee: number;
+
+  @Column()
+  description: string;
+
+  @Column({ type: 'float', nullable: true })
+  orderAmount: number;
+
+  @Column({ type: 'float', nullable: true })
+  netAmount: number;
+
+  @Column({ type: 'float', nullable: true })
+  before: number;
+
+  @Column({ type: 'float', nullable: true })
+  after: number;
+
+  @Column({
+    type: 'enum',
+    enum: FundRecordType,
+    default: FundRecordType.TRANSACTION,
+  })
+  type: FundRecordType;
+
+  @ManyToOne(() => Identity, (identity) => identity.fundRecord, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'identity_id' })
+  user: Identity;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
+}

@@ -1,0 +1,92 @@
+import { Exclude, Expose, Transform } from 'class-transformer';
+import { Identity } from 'src/identity/entities/identity.entity';
+import { ChannelProfileDto } from 'src/utils/dtos/channel-profile.dto';
+import { roundOffAmount } from 'src/utils/utils';
+import { Agent } from '../entities/agent.entity';
+
+@Exclude()
+export class AgentResponseDto {
+  @Expose()
+  id: number;
+
+  @Expose()
+  firstName: string;
+
+  @Expose()
+  lastName: string;
+
+  @Expose()
+  @Transform(({ obj }) => obj.identity.email, { toClassOnly: true })
+  email: string;
+
+  @Expose()
+  @Transform(({ obj }) => obj.phone ?? null, { toClassOnly: true }) // Handle optional field
+  phone: string | null;
+
+  @Expose()
+  referralCode: string;
+
+  @Expose()
+  enabled: boolean;
+
+  @Expose()
+  createdAt: Date;
+
+  @Expose()
+  updatedAt: Date;
+
+  @Exclude()
+  identity: Identity;
+
+  @Expose()
+  withdrawalRate: string;
+
+  @Expose()
+  minWithdrawalAmount: number;
+
+  @Expose()
+  maxWithdrawalAmount: number;
+
+  @Expose()
+  @Transform(
+    ({ obj }) => {
+      const channelProfile = {
+        upi: obj.identity.upi,
+        eWallet: obj.identity.eWallet,
+        netBanking: obj.identity.netBanking,
+      };
+      return channelProfile;
+    },
+    { toClassOnly: true },
+  )
+  channelProfile: ChannelProfileDto;
+
+  @Expose()
+  @Transform(({ obj }) => roundOffAmount(obj.balance), {
+    toClassOnly: true,
+  })
+  balance: number;
+
+  @Expose()
+  organizationId: string;
+
+  @Expose()
+  @Transform(
+    ({ obj }) => {
+      return {
+        id: obj?.agent?.id || 0,
+        name: obj?.agent?.firstName
+          ? obj?.agent?.firstName + ' ' + obj?.agent?.lastName
+          : '',
+      };
+    },
+    { toClassOnly: true },
+  )
+  agent: Agent;
+
+  @Expose()
+  agentPayinCommissionRate: number;
+
+  @Expose()
+  agentPayoutCommissionRate: number;
+}

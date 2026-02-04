@@ -1,0 +1,51 @@
+.AdminTable td,
+.AdminTable th {
+  padding: 10px;
+  white-space: nowrap;
+  border-bottom: 1px solid #d0d0d0;
+  text-align: center;
+}
+
+.AdminTable th {
+  padding: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.AdminTable th:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 30%;
+  height: 50%;
+  border-right: 1px solid white;
+}
+
+.container {
+  max-width: 100%;
+  overflow-x: auto;
+  min-height: 200px;
+  margin-top: 20px;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.row {
+  background-color: #a85706;
+  color: #fff;
+}
+
+.adminTableEntries tr:nth-child(odd) {
+  background-color: #f6f8ff;
+}
+
+.mainTable {
+  background-color: #fff;
+  padding-bottom: 2px;
+}
+
+@media (max-width: 767px) {
+  .paginationSection {
+    flex-direction: column-reverse;
+    gap: 20px;
+  }
+}

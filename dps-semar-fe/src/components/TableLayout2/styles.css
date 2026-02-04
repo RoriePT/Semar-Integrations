@@ -1,0 +1,17 @@
+.mantine-Table-table {
+}
+
+.mantine-Table-th,
+.mantine-Table-td {
+  text-align: center;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.mantine-Table-th {
+  font-size: 12px;
+  color: slategrey;
+}
+
+.mantine-Table-tbody {
+}

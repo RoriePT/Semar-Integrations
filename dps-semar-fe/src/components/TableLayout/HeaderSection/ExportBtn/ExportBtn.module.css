@@ -1,0 +1,13 @@
+.exportBtn {
+  border-color: #cbd5e1;
+  font-weight: 400;
+  min-width: 120px;
+}
+
+.exportBtn svg {
+  color: #808080;
+}
+
+.modalBody {
+  min-width: 510px;
+}

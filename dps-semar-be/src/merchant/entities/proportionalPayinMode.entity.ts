@@ -1,0 +1,27 @@
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { PayinMode } from './payinMode.entity';
+
+@Entity()
+export class ProportionalPayinMode {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'float' })
+  ratio: number;
+
+  @Column({
+    type: 'enum',
+    enum: ['member', 'phonepe', 'razorpay', 'payu', 'cashfree'],
+  })
+  gateway: string;
+
+  @ManyToOne(() => PayinMode, (payinMode) => payinMode.proportionalRange)
+  @JoinColumn({ name: 'payin_mode' })
+  payinMode: PayinMode;
+}

@@ -1,0 +1,202 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Withdrawal } from './entities/withdrawal.entity';
+import { Repository } from 'typeorm';
+import { Merchant } from 'src/merchant/entities/merchant.entity';
+import { TransactionUpdate } from 'src/transaction-updates/entities/transaction-update.entity';
+import { plainToInstance } from 'class-transformer';
+import {
+  PaginateRequestDto,
+  parseEndDate,
+  parseStartDate,
+} from 'src/utils/dtos/paginate.dto';
+import {
+  ChannelName,
+  UserTypeForTransactionUpdates,
+  WithdrawalOrderStatus,
+} from 'src/utils/enum/enum';
+import {
+  WithdrawalDetailsUserResDto,
+  WithdrawalUserResponseDto,
+} from './dto/withdrawal-user-response.dto';
+import { roundOffAmount } from 'src/utils/utils';
+import { Config } from 'src/channel/entity/config.entity';
+import { paginateAndClamp } from 'src/utils/pagination.util';
+
+@Injectable()
+export class WithdrawalMerchantService {
+  constructor(
+    @InjectRepository(Withdrawal)
+    private readonly withdrawalRepository: Repository<Withdrawal>,
+    @InjectRepository(Merchant)
+    private readonly merchantRepository: Repository<Merchant>,
+    @InjectRepository(TransactionUpdate)
+    private readonly transactionUpdateRepository: Repository<TransactionUpdate>,
+    @InjectRepository(Config)
+    private readonly channelConfigRepository: Repository<Config>,
+  ) {}
+
+  async getChannelProfileDetails(id: number) {
+    const merchant = await this.merchantRepository.findOne({
+      where: {
+        id,
+      },
+      relations: [
+        'identity',
+        'identity.upi',
+        'identity.netBanking',
+        'identity.eWallet',
+      ],
+    });
+    if (!merchant) throw new NotFoundException('Merchant not found!');
+
+    const availableChannels: any = [];
+    merchant.identity?.upi?.length && availableChannels.push('upi');
+    merchant.identity?.netBanking?.length &&
+      availableChannels.push('netBanking');
+    merchant.identity?.eWallet?.length && availableChannels.push('eWallet');
+
+    const mapChannel = {
+      upi: ChannelName.UPI,
+      eWallet: ChannelName.E_WALLET,
+      netBanking: ChannelName.BANKING,
+    };
+
+    const channelProfiles = await Promise.all(
+      availableChannels.map(async (el) => {
+        const channelConfig = await this.channelConfigRepository.findOneBy({
+          name: mapChannel[el],
+        });
+
+        return {
+          channelName: el,
+          channelDetails: merchant.identity[el],
+          enabled: channelConfig.outgoing,
+        };
+      }),
+    );
+
+    return {
+      channelProfiles,
+      minWithdrawal: merchant.minWithdrawal,
+      maxWithdrawal: merchant.maxWithdrawal,
+      currentBalance: roundOffAmount(merchant.balance),
+    };
+  }
+
+  async paginateWithdrawals(
+    paginateRequestDto: PaginateRequestDto,
+    userId: number,
+  ) {
+    const {
+      search,
+      pageSize,
+      pageNumber,
+      startDate,
+      endDate,
+      sortBy,
+      forBulletin,
+      // userId,
+    } = paginateRequestDto;
+
+    const queryBuilder = this.withdrawalRepository
+      .createQueryBuilder('withdrawal')
+      .leftJoinAndSelect('withdrawal.user', 'user')
+      .leftJoinAndSelect('user.merchant', 'merchant');
+
+    if (userId) queryBuilder.andWhere('merchant.id = :userId', { userId });
+
+    if (forBulletin)
+      queryBuilder.andWhere('withdrawal.status = :status', {
+        status: WithdrawalOrderStatus.PENDING,
+      });
+
+    if (search)
+      queryBuilder.andWhere(`CONCAT(withdrawal.systemOrderId) ILIKE :search`, {
+        search: `%${search}%`,
+      });
+
+    if (startDate && endDate) {
+      const parsedStartDate = parseStartDate(startDate);
+      const parsedEndDate = parseEndDate(endDate);
+
+      queryBuilder.andWhere(
+        'withdrawal.created_at BETWEEN :startDate AND :endDate',
+        {
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
+        },
+      );
+    }
+
+    if (sortBy)
+      sortBy === 'latest'
+        ? queryBuilder.orderBy('withdrawal.createdAt', 'DESC')
+        : queryBuilder.orderBy('withdrawal.createdAt', 'ASC');
+
+    const { rows, meta } = await paginateAndClamp(queryBuilder, {
+      pageNumber,
+      pageSize,
+    });
+
+    const dtos = await Promise.all(
+      rows.map(async (row) => {
+        const transactionUpdate =
+          await this.transactionUpdateRepository.findOne({
+            where: {
+              systemOrderId: row.systemOrderId,
+              userType: UserTypeForTransactionUpdates.MERCHANT_BALANCE,
+            },
+          });
+
+        const response = {
+          ...row,
+          serviceCharge: roundOffAmount(transactionUpdate?.amount) || 0,
+          balanceAfter: roundOffAmount(transactionUpdate?.after) || 0,
+          balanceBefore: roundOffAmount(transactionUpdate?.before) || 0,
+          date: row.createdAt,
+        };
+
+        return plainToInstance(WithdrawalUserResponseDto, response);
+      }),
+    );
+
+    return {
+      total: meta.total,
+      page: meta.page,
+      pageSize: meta.pageSize,
+      totalPages: meta.totalPages,
+      startRecord: meta.startRecord,
+      endRecord: meta.endRecord,
+      data: dtos,
+    };
+  }
+
+  async getOrderDetails(id: string) {
+    const orderDetails = await this.withdrawalRepository.findOne({
+      where: { systemOrderId: id },
+      relations: ['user', 'user.merchant'],
+    });
+    if (!orderDetails) throw new NotFoundException('Order not found!');
+
+    const transactionUpdate = await this.transactionUpdateRepository.findOne({
+      where: {
+        systemOrderId: id,
+        userType: UserTypeForTransactionUpdates.MERCHANT_BALANCE,
+      },
+      relations: ['withdrawalOrder'],
+    });
+
+    const data = {
+      ...orderDetails,
+      serviceCharge: roundOffAmount(transactionUpdate?.amount) || 0,
+      balanceDeducted:
+        roundOffAmount(transactionUpdate?.before - transactionUpdate?.after) ||
+        0,
+      userChannel: JSON.parse(orderDetails.channelDetails),
+      transactionDetails: JSON.parse(orderDetails.transactionDetails),
+    };
+
+    return plainToInstance(WithdrawalDetailsUserResDto, data);
+  }
+}

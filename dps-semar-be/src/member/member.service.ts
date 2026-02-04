@@ -1,0 +1,686 @@
+import {
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between, Not } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
+
+import { Member } from './entities/member.entity';
+
+import { CreateMemberDto } from './dto/create-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { RegisterDto } from './dto/register.dto';
+import { MemberResponseDto } from './dto/member-response.dto';
+import { UpdateCommissionRatesDto } from './dto/update-commission-rates.dto';
+
+import { IdentityService } from 'src/identity/identity.service';
+import {
+  PaginateRequestDto,
+  parseEndDate,
+  parseStartDate,
+} from 'src/utils/dtos/paginate.dto';
+import { ChangePasswordDto } from 'src/identity/dto/changePassword.dto';
+import { MemberReferralService } from 'src/member-referral/member-referral.service';
+import { TransactionUpdate } from 'src/transaction-updates/entities/transaction-update.entity';
+import { UserTypeForTransactionUpdates } from 'src/utils/enum/enum';
+import { Upi } from 'src/channel/entity/upi.entity';
+import { NetBanking } from 'src/channel/entity/net-banking.entity';
+import { EWallet } from 'src/channel/entity/e-wallet.entity';
+import { Team } from 'src/team/entities/team.entity';
+import { TeamService } from 'src/team/team.service';
+import { MemberReferral } from 'src/member-referral/entities/member-referral.entity';
+import { SystemConfigService } from 'src/system-config/system-config.service';
+import { paginateAndClamp } from 'src/utils/pagination.util';
+
+@Injectable()
+export class MemberService {
+  constructor(
+    @InjectRepository(Member)
+    private readonly memberRepository: Repository<Member>,
+    @InjectRepository(TransactionUpdate)
+    private readonly transactionUpdateRepository: Repository<TransactionUpdate>,
+    @InjectRepository(Upi)
+    private readonly upiRepository: Repository<Upi>,
+    @InjectRepository(NetBanking)
+    private readonly netBankingRepository: Repository<NetBanking>,
+    @InjectRepository(EWallet)
+    private readonly eWalletRepository: Repository<EWallet>,
+    @InjectRepository(Team)
+    private readonly teamRepository: Repository<Team>,
+    @InjectRepository(MemberReferral)
+    private readonly memberReferralRepository: Repository<MemberReferral>,
+
+    private readonly identityService: IdentityService,
+    private readonly memberReferralService: MemberReferralService,
+    private readonly teamService: TeamService,
+    private readonly systemConfigService: SystemConfigService,
+  ) {}
+
+  async create(createMemberDto: CreateMemberDto) {
+    const {
+      email,
+      password,
+      dailyTotalPayoutLimit,
+      enabled,
+      firstName,
+      lastName,
+      singlePayoutLowerLimit,
+      singlePayoutUpperLimit,
+      phone,
+      referralCode,
+      channelProfile,
+      telegramId,
+    } = createMemberDto;
+
+    if (referralCode) {
+      const isCodeValid =
+        await this.memberReferralService.validateReferralCode(referralCode);
+
+      if (!isCodeValid) return;
+    }
+
+    const identity = await this.identityService.create(
+      email,
+      password,
+      'MEMBER',
+    );
+
+    const referralDetails = referralCode
+      ? await this.memberReferralRepository.findOne({
+          where: { referralCode },
+          relations: ['member'],
+        })
+      : null;
+
+    const teamId = referralDetails?.member?.teamId || null;
+
+    // Create and save the Admin
+    const member = this.memberRepository.create({
+      identity,
+      firstName,
+      lastName,
+      phone,
+      enabled,
+      dailyTotalPayoutLimit,
+      singlePayoutLowerLimit,
+      singlePayoutUpperLimit,
+      telegramId,
+      agent: referralDetails?.member || null,
+      agentCommissions: referralDetails?.member?.id
+        ? {
+            payinCommissionRate: referralDetails?.payinCommission,
+            payoutCommissionRate: referralDetails?.payoutCommission,
+            topupCommissionRate: referralDetails?.topupCommission,
+          }
+        : null,
+      teamId: teamId || null,
+    });
+
+    const createdMember = await this.memberRepository.save(member);
+
+    if (referralCode)
+      teamId
+        ? await this.teamService.incrementTeamSize(teamId)
+        : await this.teamService.createTeam(
+            referralDetails.member.id,
+            createdMember.id,
+          );
+
+    if (channelProfile?.upi) {
+      for (const element of channelProfile.upi) {
+        await this.upiRepository.save({
+          ...element,
+          identity,
+        });
+      }
+    }
+
+    if (channelProfile?.eWallet) {
+      for (const element of channelProfile.eWallet) {
+        await this.eWalletRepository.save({
+          ...element,
+          identity,
+        });
+      }
+    }
+
+    if (channelProfile?.netBanking) {
+      for (const element of channelProfile.netBanking) {
+        await this.netBankingRepository.save({
+          ...element,
+          identity,
+        });
+      }
+    }
+
+    // Update Member Referrals
+    if (referralCode)
+      await this.memberReferralService.updateFromReferralCode({
+        referralCode,
+        referredMember: createdMember,
+      });
+
+    return HttpStatus.OK;
+  }
+
+  async registerViaSignup(registerDto: RegisterDto) {
+    const { referralCode } = registerDto;
+
+    if (referralCode) {
+      const isCodeValid =
+        await this.memberReferralService.validateReferralCode(referralCode);
+
+      if (!isCodeValid) return;
+    }
+
+    const verifiedContext =
+      await this.identityService.isMemberVerifedForRegister(registerDto.email);
+
+    if (verifiedContext) {
+      const identity = await this.identityService.create(
+        registerDto.email,
+        registerDto.password,
+        'MEMBER',
+      );
+
+      const {
+        maximumDailyPayoutAmountForMember,
+        maximumPayoutAmountForMember,
+        minimumPayoutAmountForMember,
+      } = await this.systemConfigService.findLatest();
+
+      const referralDetails = referralCode
+        ? await this.memberReferralRepository.findOne({
+            where: { referralCode },
+            relations: ['member'],
+          })
+        : null;
+
+      const teamId = referralDetails?.member?.teamId;
+
+      const member = this.memberRepository.create({
+        identity,
+        firstName: verifiedContext.firstName,
+        lastName: verifiedContext.lastName,
+        phone: '',
+        enabled: true,
+
+        singlePayoutLowerLimit: minimumPayoutAmountForMember || 100,
+        singlePayoutUpperLimit: maximumPayoutAmountForMember || 10000,
+        dailyTotalPayoutLimit: maximumDailyPayoutAmountForMember || 10000,
+
+        selfRegistered: true,
+        agent: referralDetails?.member || null,
+        agentCommissions: referralDetails?.member?.id
+          ? {
+              payinCommissionRate: referralDetails?.payinCommission,
+              payoutCommissionRate: referralDetails?.payoutCommission,
+              topupCommissionRate: referralDetails?.topupCommission,
+            }
+          : null,
+        teamId: teamId || null,
+      });
+
+      const createdMember = await this.memberRepository.save(member);
+
+      if (referralCode) {
+        teamId
+          ? await this.teamService.incrementTeamSize(teamId)
+          : await this.teamService.createTeam(
+              referralDetails?.member?.id,
+              createdMember.id,
+            );
+      }
+
+      // Update Member Referrals
+      if (referralCode)
+        await this.memberReferralService.updateFromReferralCode({
+          referralCode,
+          referredMember: createdMember,
+        });
+
+      return {
+        token: await this.identityService.signin({
+          email: registerDto.email,
+          password: registerDto.password,
+        }),
+        data: plainToInstance(MemberResponseDto, createdMember),
+      };
+    } else throw new NotFoundException('Request context not found');
+  }
+
+  async findAll(): Promise<MemberResponseDto[]> {
+    const results = await this.memberRepository.find({
+      relations: [
+        'identity',
+        'identity.upi',
+        'identity.eWallet',
+        'identity.netBanking',
+      ],
+    });
+
+    return plainToInstance(MemberResponseDto, results);
+  }
+
+  private getMemberRates = async (teamId) => {
+    let team;
+    if (teamId) team = await this.teamRepository.findOneBy({ teamId });
+    if (
+      team?.teamPayinCommissionRate > 0 ||
+      team?.teamPayoutCommissionRate > 0
+    ) {
+      return {
+        payin: team?.teamPayinCommissionRate,
+        payout: team?.teamPayoutCommissionRate,
+        topup: team?.teamTopupCommissionRate,
+      };
+    }
+
+    const systemConfig = await this.systemConfigService.findLatest();
+    return {
+      payin: systemConfig?.payinCommissionRateForMember,
+      payout: systemConfig?.payoutCommissionRateForMember,
+      topup: systemConfig?.topupCommissionRateForMember,
+    };
+  };
+
+  async findOne(id: number): Promise<any> {
+    const results = await this.memberRepository.findOne({
+      where: { id },
+      relations: [
+        'identity',
+        'identity.upi',
+        'identity.eWallet',
+        'identity.netBanking',
+      ],
+    });
+
+    const modifiedResults = {
+      ...results,
+      payinCommissionRate: (await this.getMemberRates(results.teamId)).payin,
+      payoutCommissionRate: (await this.getMemberRates(results.teamId)).payout,
+      topupCommissionRate: (await this.getMemberRates(results.teamId)).topup,
+    };
+
+    return plainToInstance(MemberResponseDto, modifiedResults);
+  }
+
+  async update(id: number, updateDto: UpdateMemberDto): Promise<HttpStatus> {
+    const memberData = await this.memberRepository.findOneBy({ id });
+
+    if (!memberData) throw new NotFoundException('Member not found.');
+
+    const channelProfile = updateDto.channelProfile;
+    const email = updateDto.email;
+    const password = updateDto.password;
+    const updateLoginCredentials = updateDto.updateLoginCredentials;
+
+    delete updateDto.updateLoginCredentials;
+    delete updateDto.channelProfile;
+    delete updateDto.email;
+    delete updateDto.password;
+    const result = await this.memberRepository.update({ id: id }, updateDto);
+
+    const member = await this.memberRepository.findOne({
+      where: { id: id },
+      relations: ['identity'],
+    });
+
+    // Deleting all existing Data
+    await this.upiRepository.delete({
+      identity: {
+        id: member.identity.id,
+      },
+    });
+    await this.eWalletRepository.delete({
+      identity: {
+        id: member.identity.id,
+      },
+    });
+    await this.netBankingRepository.delete({
+      identity: {
+        id: member.identity.id,
+      },
+    });
+
+    // Adding all the channels
+    if (channelProfile?.upi && channelProfile.upi.length > 0) {
+      for (const element of channelProfile.upi) {
+        await this.upiRepository.save({
+          ...element,
+          identity: member.identity,
+        });
+      }
+    }
+
+    if (channelProfile?.eWallet) {
+      for (const element of channelProfile.eWallet) {
+        await this.eWalletRepository.save({
+          ...element,
+          identity: member.identity,
+        });
+      }
+    }
+
+    if (channelProfile?.netBanking) {
+      for (const element of channelProfile.netBanking) {
+        await this.netBankingRepository.save({
+          ...element,
+          identity: member.identity,
+        });
+      }
+    }
+
+    if (updateLoginCredentials) {
+      const updatedAdmin = await this.memberRepository.findOne({
+        where: { id },
+        relations: ['identity'], // Explicitly specify the relations
+      });
+
+      await this.identityService.updateLogin(
+        updatedAdmin.identity.id,
+        email,
+        password,
+      );
+    }
+
+    return HttpStatus.OK;
+  }
+
+  async remove(id: number) {
+    const member = await this.memberRepository.findOne({
+      where: { id: id },
+      relations: ['identity'], // Ensure you load the identity relation
+    });
+
+    if (!member) throw new NotFoundException();
+
+    await this.memberRepository.delete(id);
+    await this.identityService.remove(member.identity?.id);
+
+    return HttpStatus.OK;
+  }
+
+  async paginate(paginateDto: PaginateRequestDto) {
+    const query = this.memberRepository.createQueryBuilder('member');
+    // query.orderBy('admin.created_at', 'DESC');
+    // Add relation to the identity entity
+    query.leftJoinAndSelect('member.identity', 'identity'); // Join with identity
+    // .leftJoinAndSelect('identity.profile', 'profile'); // Join with profile through identity
+    // Sort records by created_at from latest to oldest
+    query.leftJoinAndSelect('member.memberReferral', 'memberReferral');
+    query.leftJoinAndSelect('memberReferral.referredMember', 'referredMember');
+    query.leftJoinAndSelect('memberReferral.member', 'childMember');
+
+    const search = paginateDto.search;
+    const pageSize = paginateDto.pageSize;
+    const pageNumber = paginateDto.pageNumber;
+    const sortBy = paginateDto.sortBy;
+
+    // Handle search by first_name + " " + last_name
+    if (search) {
+      query.andWhere(
+        `CONCAT(member.first_name, ' ', member.last_name) ILIKE :search`,
+        { search: `%${search}%` },
+      );
+    }
+
+    // Handle filtering by created_at between startDate and endDate
+    if (paginateDto.startDate && paginateDto.endDate) {
+      const startDate = parseStartDate(paginateDto.startDate);
+      const endDate = parseEndDate(paginateDto.endDate);
+
+      query.andWhere('member.created_at BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
+    }
+
+    if (sortBy)
+      sortBy === 'latest'
+        ? query.orderBy('member.createdAt', 'DESC')
+        : query.orderBy('member.createdAt', 'ASC');
+
+    const { rows, meta } = await paginateAndClamp(query, {
+      pageNumber,
+      pageSize,
+    });
+
+    const dtos = plainToInstance(MemberResponseDto, rows);
+
+    // Return paginated result
+    return {
+      data: dtos,
+      total: meta.total,
+      page: meta.page,
+      pageSize: meta.pageSize,
+      totalPages: meta.totalPages,
+      startRecord: meta.startRecord,
+      endRecord: meta.endRecord,
+    };
+  }
+
+  async exportRecords(startDate: string, endDate: string) {
+    startDate = parseStartDate(startDate);
+    endDate = parseEndDate(endDate);
+
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    const [rows, total] = await this.memberRepository.findAndCount({
+      relations: ['identity'],
+      where: {
+        createdAt: Between(parsedStartDate, parsedEndDate),
+      },
+    });
+
+    const dtos = plainToInstance(MemberResponseDto, rows);
+
+    return {
+      data: dtos,
+      total,
+    };
+  }
+
+  async getProfile(id: number) {
+    const profile = await this.findOne(id);
+    if (!profile.enabled) {
+      throw new UnauthorizedException('Unauthorized.');
+    }
+
+    return profile;
+  }
+
+  async changePassword(changePasswordDto: ChangePasswordDto, id: number) {
+    const membaeData = await this.memberRepository.findOne({
+      where: { id },
+      relations: ['identity'],
+    });
+
+    if (!membaeData) throw new NotFoundException();
+
+    return this.identityService.changePassword(
+      changePasswordDto,
+      membaeData.identity.id,
+    );
+  }
+
+  async updateQuota(
+    identityId,
+    systemOrderId,
+    amount,
+    failed,
+    updateTransactionEntries = true,
+  ) {
+    const member = await this.memberRepository.findOne({
+      where: {
+        identity: { id: identityId },
+      },
+      relations: ['identity', 'team'],
+    });
+
+    if (!member) throw new NotFoundException('Member not found!');
+
+    await this.memberRepository.update(member.id, {
+      quota: member.quota + amount,
+    });
+
+    if (member?.teamId)
+      await this.teamService.updateTeamQuota(member.teamId, amount);
+
+    const updatedMember = await this.memberRepository.findOne({
+      where: { identity: { id: identityId } },
+      relations: ['identity'],
+    });
+
+    let whereCondition;
+    whereCondition = {
+      userType: UserTypeForTransactionUpdates.MEMBER_QUOTA,
+      user: { id: identityId },
+      pending: true,
+    };
+    if (failed) whereCondition.systemOrderId = systemOrderId;
+    else whereCondition.systemOrderId = Not(systemOrderId);
+
+    if (updateTransactionEntries) {
+      const transactionUpdateMembers =
+        await this.transactionUpdateRepository.find({
+          where: whereCondition,
+          relations: ['user'],
+        });
+
+      for (const transactionUpdateMember of transactionUpdateMembers) {
+        let beforeValue = updatedMember.quota;
+        let afterValue = failed ? updatedMember.quota : beforeValue + amount;
+
+        if (transactionUpdateMember)
+          if (failed)
+            await this.transactionUpdateRepository.update(
+              transactionUpdateMember.id,
+              {
+                before: beforeValue,
+                after: afterValue,
+                amount: 0,
+                rate: 0,
+              },
+            );
+          else
+            await this.transactionUpdateRepository.update(
+              transactionUpdateMember.id,
+              {
+                before: beforeValue,
+                after: afterValue,
+              },
+            );
+      }
+    }
+  }
+
+  async updateBalance(identityId, systemOrderId, amount, failed) {
+    const member = await this.memberRepository.findOne({
+      where: {
+        identity: { id: identityId },
+      },
+      relations: ['identity'],
+    });
+
+    if (!member) throw new NotFoundException('Member not found!');
+
+    await this.memberRepository.update(member.id, {
+      balance: member.balance + amount,
+    });
+
+    const updatedMember = await this.memberRepository.findOne({
+      where: { identity: { id: identityId } },
+      relations: ['identity'],
+    });
+
+    let whereCondition;
+    whereCondition = {
+      userType: UserTypeForTransactionUpdates.MEMBER_BALANCE,
+      user: { id: identityId },
+      pending: true,
+    };
+    if (failed) whereCondition.systemOrderId = systemOrderId;
+    else whereCondition.systemOrderId = Not(systemOrderId);
+
+    const transactionUpdateMembers =
+      await this.transactionUpdateRepository.find({
+        where: whereCondition,
+        relations: ['user'],
+      });
+
+    for (const transactionUpdateMember of transactionUpdateMembers) {
+      let beforeValue = updatedMember.balance;
+      let afterValue = failed ? updatedMember.balance : amount + beforeValue;
+
+      if (transactionUpdateMember)
+        if (failed)
+          await this.transactionUpdateRepository.update(
+            transactionUpdateMember.id,
+            {
+              before: beforeValue,
+              after: afterValue,
+              amount: 0,
+              rate: 0,
+            },
+          );
+        else
+          await this.transactionUpdateRepository.update(
+            transactionUpdateMember.id,
+            {
+              before: beforeValue,
+              after: afterValue,
+            },
+          );
+    }
+  }
+
+  async updateComissionRates(requestDto: UpdateCommissionRatesDto) {
+    const {
+      agentPayinCommissionRate,
+      agentPayoutCommissionRate,
+      agentTopupCommissionRate,
+      memberId,
+      teamId,
+    } = requestDto;
+
+    // const upperLimitForPayin = await this.teamService.getUpperLimitForAdminEdit(
+    //   memberId,
+    //   teamId,
+    //   OrderType.PAYIN,
+    // );
+    // if (agentPayinCommissionRate > upperLimitForPayin)
+    //   return {
+    //     error: true,
+    //     for: 'payin',
+    //     message: `Max limit - ${upperLimitForPayin.toString().substring(0, 5)}%`,
+    //   };
+
+    // const upperLimitForPayout =
+    //   await this.teamService.getUpperLimitForAdminEdit(
+    //     memberId,
+    //     teamId,
+    //     OrderType.PAYOUT,
+    //   );
+    // if (agentPayoutCommissionRate > upperLimitForPayout)
+    //   return {
+    //     error: true,
+    //     for: 'payout',
+    //     message: `Max limit - ${upperLimitForPayin.toString().substring(0, 5)}%`,
+    //   };
+
+    await this.memberRepository.update(memberId, {
+      agentCommissions: {
+        payinCommissionRate: agentPayinCommissionRate,
+        payoutCommissionRate: agentPayoutCommissionRate,
+        topupCommissionRate: agentTopupCommissionRate,
+      },
+    });
+
+    return HttpStatus.OK;
+  }
+}

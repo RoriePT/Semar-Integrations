@@ -1,0 +1,214 @@
+import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  Min,
+  IsNotEmpty,
+  IsEmail,
+  IsArray,
+  ArrayNotEmpty,
+  ValidateNested,
+  IsIP,
+  IsInt,
+  IsIn,
+  IsObject,
+} from 'class-validator';
+import { IsValidPassword } from 'src/utils/decorators/validPassword.decorator';
+import { ChannelProfileDto } from 'src/utils/dtos/channel-profile.dto';
+import { ServiceRateType } from 'src/utils/enum/enum';
+
+export class RangeDto {
+  @IsInt()
+  @IsNotEmpty()
+  lower: number;
+
+  @IsInt()
+  @IsNotEmpty()
+  upper: number;
+
+  @IsIn(['member', 'phonepe', 'razorpay', 'payu', 'cashfree'])
+  @IsNotEmpty()
+  gateway: string;
+}
+
+export class RatioDto {
+  @IsNumber()
+  @IsNotEmpty()
+  ratio: number;
+
+  @IsIn(['member', 'phonepe', 'razorpay', 'payu', 'cashfree'])
+  @IsNotEmpty()
+  gateway: string;
+}
+export class CreateMerchantDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsEmail(undefined, { message: 'Invalid email address' })
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsValidPassword()
+  password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  businessName?: string;
+
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  enabled: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsValidPassword()
+  withdrawalPassword: string;
+
+  @IsString()
+  @IsNotEmpty()
+  businessUrl: string;
+
+  @IsString()
+  @IsNotEmpty()
+  gst: string;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  allowMemberChannelsPayin: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  allowPgBackupForPayin: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  allowMemberChannelsPayout: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  allowPgBackupForPayout: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  enableUpiVendorGateway?: boolean;
+
+  @IsObject()
+  payinServiceRate: ServiceRateType;
+
+  @IsObject()
+  payoutServiceRate: ServiceRateType;
+
+  @IsNumber()
+  @Min(0)
+  withdrawalServiceRate: number;
+
+  @IsNumber()
+  @Min(0)
+  minPayout: number;
+
+  @IsNumber()
+  @Min(0)
+  maxPayout: number;
+
+  @IsNumber()
+  @Min(0)
+  minWithdrawal: number;
+
+  @IsNumber()
+  @Min(0)
+  maxWithdrawal: number;
+
+  @IsNotEmpty()
+  @IsString()
+  payinChannels: string;
+
+  @IsNotEmpty()
+  @IsString()
+  payoutChannels: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ChannelProfileDto)
+  channelProfile: ChannelProfileDto;
+
+  @IsOptional()
+  @IsArray()
+  // @ArrayNotEmpty()
+  @IsIP(undefined, { each: true })
+  ipAddresses: string[];
+
+  @IsEnum(['DEFAULT', 'PROPORTIONAL', 'AMOUNT RANGE'])
+  @IsNotEmpty()
+  payinMode: 'DEFAULT' | 'PROPORTIONAL' | 'AMOUNT RANGE' = 'DEFAULT'; // Default value
+
+  @IsOptional()
+  @IsNumber()
+  @IsNotEmpty()
+  numberOfRangesOrRatio?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => RangeDto)
+  amountRanges: RangeDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => RatioDto)
+  ratios: RatioDto[];
+
+  @IsOptional()
+  @IsNumber()
+  agentId: number;
+
+  @IsOptional()
+  @IsNumber()
+  agentPayinCommissionRate: number;
+
+  @IsOptional()
+  @IsNumber()
+  agentPayoutCommissionRate: number;
+
+  @IsNotEmpty()
+  @IsString()
+  apiKey: string;
+
+  @IsNotEmpty()
+  @IsString()
+  integrationId: string;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  enablePayins: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  enablePayouts: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  upiVendorAutoVerifyThreshold?: number;
+}

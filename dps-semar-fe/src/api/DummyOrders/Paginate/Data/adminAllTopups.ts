@@ -1,0 +1,55 @@
+export const adminAllTopups = [
+  {
+    id: 1,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "initiated",
+    channel: "UPI",
+    member: null,
+    memberCommission: 3,
+    totalAgentCommission: 5,
+  },
+  {
+    id: 2,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "assigned",
+    channel: "Netbanking",
+    member: "Sneha Raina",
+    memberCommission: 3,
+    totalAgentCommission: 5,
+  },
+
+  {
+    id: 4,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "submitted",
+    channel: "UPI",
+    member: "Sneha Raina",
+    memberCommission: 3,
+    totalAgentCommission: 5,
+  },
+
+  {
+    id: 6,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "complete",
+    channel: "UPI",
+    member: "Sneha Raina",
+    memberCommission: 3,
+    totalAgentCommission: 5,
+  },
+
+  {
+    id: 8,
+    systemOrderId: "123456789e",
+    amount: 2345,
+    status: "rejected",
+    channel: "UPI",
+    member: "Sneha Raina",
+    memberCommission: 3,
+    totalAgentCommission: 5,
+  },
+];

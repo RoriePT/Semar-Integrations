@@ -1,0 +1,327 @@
+import { TransactionUpdate } from 'src/transaction-updates/entities/transaction-update.entity';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Between, Repository } from 'typeorm';
+import {
+  PaginateRequestDto,
+  parseEndDate,
+  parseStartDate,
+} from 'src/utils/dtos/paginate.dto';
+import { plainToInstance } from 'class-transformer';
+import { CommissionsAdminPaginateResponseDto } from './dto/commissions-paginate.dto';
+import { OrderType, UserTypeForTransactionUpdates } from 'src/utils/enum/enum';
+import { roundOffAmount } from 'src/utils/utils';
+import { Payin } from 'src/payin/entities/payin.entity';
+import { Payout } from 'src/payout/entities/payout.entity';
+import { Topup } from 'src/topup/entities/topup.entity';
+import { Member } from 'src/member/entities/member.entity';
+import { Agent } from 'src/agent/entities/agent.entity';
+import { Merchant } from 'src/merchant/entities/merchant.entity';
+import { paginateAndClamp } from 'src/utils/pagination.util';
+
+@Injectable()
+export class TransactionUpdatesService {
+  constructor(
+    @InjectRepository(TransactionUpdate)
+    private readonly transactionUpdateRepository: Repository<TransactionUpdate>,
+    @InjectRepository(Payin)
+    private readonly payinRepository: Repository<Payin>,
+    @InjectRepository(Payout)
+    private readonly payoutRepository: Repository<Payout>,
+    @InjectRepository(Topup)
+    private readonly topupRepository: Repository<Topup>,
+    @InjectRepository(Member)
+    private readonly memberRepository: Repository<Member>,
+    @InjectRepository(Agent)
+    private readonly agentRepository: Repository<Agent>,
+    @InjectRepository(Merchant)
+    private readonly merchantRepository: Repository<Merchant>,
+  ) {}
+
+  async paginateCommissionsAndProfits(
+    paginateRequestDto: PaginateRequestDto,
+    userEmail,
+  ) {
+    const {
+      startDate,
+      endDate,
+      search,
+      pageNumber,
+      pageSize,
+      // userEmail,
+      sortBy,
+    } = paginateRequestDto;
+
+    const queryBuilder = this.transactionUpdateRepository
+      .createQueryBuilder('transactionUpdate')
+      .leftJoinAndSelect('transactionUpdate.user', 'user');
+    if (userEmail)
+      queryBuilder.andWhere('user.email = :userEmail', { userEmail });
+
+    if (search)
+      queryBuilder.andWhere(
+        `CONCAT(transactionUpdate.systemOrderId) ILIKE :search`,
+        { search: `%${search}%` },
+      );
+
+    if (startDate && endDate) {
+      const parsedStartDate = parseStartDate(startDate);
+      const parsedEndDate = parseEndDate(endDate);
+
+      queryBuilder.andWhere(
+        'transactionUpdate.created_at BETWEEN :startDate AND :endDate',
+        {
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
+        },
+      );
+    }
+
+    if (sortBy)
+      sortBy === 'latest'
+        ? queryBuilder.orderBy('transactionUpdate.createdAt', 'DESC')
+        : queryBuilder.orderBy('transactionUpdate.createdAt', 'ASC');
+
+    queryBuilder.andWhere(
+      'transactionUpdate.userType IN (:agentCommission, :memberCommission)',
+      {
+        agentCommission: UserTypeForTransactionUpdates.AGENT_BALANCE,
+        memberCommission: UserTypeForTransactionUpdates.MEMBER_BALANCE,
+      },
+    );
+    queryBuilder.andWhere('transactionUpdate.pending = false');
+    queryBuilder.andWhere(
+      'NOT transactionUpdate.before = transactionUpdate.after',
+    );
+    queryBuilder.andWhere('transactionUpdate.orderType IN (:...orderType)', {
+      orderType: [OrderType.PAYIN, OrderType.PAYOUT, OrderType.TOPUP],
+    });
+
+    const { rows, meta } = await paginateAndClamp(queryBuilder, {
+      pageNumber,
+      pageSize,
+    });
+
+    const dtos = await Promise.all(
+      rows.map(async (row) => {
+        const mapOrderType = {
+          Payin: 'payinOrder',
+          Payout: 'payoutOrder',
+          Topup: 'topupOrder',
+        };
+        const orderType = mapOrderType[row.orderType];
+
+        const merchantRow = await this.transactionUpdateRepository.findOne({
+          where: {
+            systemOrderId: row.systemOrderId,
+            userType: UserTypeForTransactionUpdates.MERCHANT_BALANCE,
+          },
+          relations: ['payinOrder', 'payoutOrder', 'topupOrder'],
+        });
+
+        let orderRow;
+        switch (orderType) {
+          case 'payinOrder':
+            orderRow = await this.payinRepository.findOneBy({
+              systemOrderId: row.systemOrderId,
+            });
+            break;
+          case 'payoutOrder':
+            orderRow = await this.payoutRepository.findOneBy({
+              systemOrderId: row.systemOrderId,
+            });
+            break;
+          case 'topupOrder':
+            orderRow = await this.topupRepository.findOneBy({
+              systemOrderId: row.systemOrderId,
+            });
+            break;
+        }
+
+        const payload = {
+          orderId: row.systemOrderId,
+          orderType: row.orderType.toLowerCase(),
+          agentMember: row?.name,
+          merchant: orderType === 'topupOrder' ? 'None' : merchantRow?.name,
+          merchantFees: orderType === 'topupOrder' ? 0 : merchantRow?.amount,
+          orderAmount: roundOffAmount(orderRow?.amount) || 0,
+          commission: row?.amount || 0,
+          date: row.createdAt,
+          referralUser: row?.isAgentOf,
+        };
+
+        return plainToInstance(CommissionsAdminPaginateResponseDto, payload);
+      }),
+    );
+
+    return {
+      total: meta.total,
+      page: meta.page,
+      pageSize: meta.pageSize,
+      totalPages: meta.totalPages,
+      startRecord: meta.startRecord,
+      endRecord: meta.endRecord,
+      data: dtos,
+    };
+  }
+
+  async exportRecords(startDate: string, endDate: string) {
+    startDate = parseStartDate(startDate);
+    endDate = parseEndDate(endDate);
+
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    const queryBuilder = this.transactionUpdateRepository
+      .createQueryBuilder('transactionUpdate')
+      .leftJoinAndSelect('transactionUpdate.user', 'user');
+
+    queryBuilder.andWhere(
+      'transactionUpdate.userType IN (:agentCommission, :memberCommission)',
+      {
+        agentCommission: UserTypeForTransactionUpdates.AGENT_BALANCE,
+        memberCommission: UserTypeForTransactionUpdates.MEMBER_BALANCE,
+      },
+    );
+    queryBuilder.andWhere('transactionUpdate.pending = false');
+    queryBuilder.andWhere(
+      'NOT transactionUpdate.before = transactionUpdate.after',
+    );
+    queryBuilder.andWhere('transactionUpdate.orderType IN (:...orderType)', {
+      orderType: [OrderType.PAYIN, OrderType.PAYOUT, OrderType.TOPUP],
+    });
+    queryBuilder.andWhere(
+      'transactionUpdate.createdAt BETWEEN :startDate AND :endDate',
+      {
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+      },
+    );
+
+    const [rows, total] = await queryBuilder.getManyAndCount();
+
+    const dtos = await Promise.all(
+      rows.map(async (row) => {
+        const mapOrderType = {
+          Payin: 'payinOrder',
+          Payout: 'payoutOrder',
+          Topup: 'topupOrder',
+        };
+        const orderType = mapOrderType[row.orderType];
+
+        const merchantRow = await this.transactionUpdateRepository.findOne({
+          where: {
+            systemOrderId: row.systemOrderId,
+            userType: UserTypeForTransactionUpdates.MEMBER_BALANCE,
+          },
+          relations: ['payinOrder', 'payoutOrder', 'topupOrder'],
+        });
+
+        let orderRow;
+        switch (orderType) {
+          case 'payinOrder':
+            orderRow = await this.payinRepository.findOneBy({
+              systemOrderId: row.systemOrderId,
+            });
+            break;
+          case 'payoutOrder':
+            orderRow = await this.payoutRepository.findOneBy({
+              systemOrderId: row.systemOrderId,
+            });
+            break;
+          case 'topupOrder':
+            orderRow = await this.topupRepository.findOneBy({
+              systemOrderId: row.systemOrderId,
+            });
+            break;
+        }
+
+        const payload = {
+          orderId: row.systemOrderId,
+          orderType: row.orderType.toLowerCase(),
+          agentMember: row?.name,
+          merchant: orderType === 'topupOrder' ? 'None' : merchantRow?.name,
+          merchantFees: orderType === 'topupOrder' ? 0 : merchantRow?.amount,
+          orderAmount: roundOffAmount(orderRow?.amount) || 0,
+          commission: row?.amount || 0,
+          date: row.createdAt,
+        };
+
+        return plainToInstance(CommissionsAdminPaginateResponseDto, payload);
+      }),
+    );
+
+    return {
+      total,
+      data: dtos,
+    };
+  }
+
+  transformAgent(agent: Member | Agent, referee: any) {
+    return {
+      id: agent?.id,
+      name: agent?.firstName + ' ' + agent?.lastName,
+      email: agent?.identity?.email,
+      isAgentOf: referee?.firstName + ' ' + referee?.lastName,
+      payinCommissionRate: referee?.agentCommissions?.payinCommissionRate,
+      payoutCommissionRate: referee?.agentCommissions?.payoutCommissionRate,
+      topupCommissionRate: referee?.agentCommissions?.topupCommissionRate,
+    };
+  }
+
+  async getMemberAgentsLine(identityId) {
+    const member = await this.memberRepository.findOne({
+      where: { identity: { id: identityId } },
+      relations: ['agent', 'identity'],
+    });
+
+    let nextAgent = member?.agent;
+    let allAgents = [member];
+    let currentMember = member;
+
+    while (nextAgent) {
+      const memberAgent = await this.memberRepository.findOne({
+        where: {
+          id: nextAgent?.id,
+        },
+        relations: ['agent', 'identity'],
+      });
+
+      allAgents.push(memberAgent);
+
+      currentMember = memberAgent;
+      nextAgent = memberAgent?.agent;
+    }
+
+    return allAgents;
+  }
+
+  async getMerchantAgentsLine(identityId) {
+    const merchant: any = await this.merchantRepository.findOne({
+      where: { identity: { id: identityId } },
+      relations: ['agent', 'identity'],
+    });
+
+    merchant.isMerchant = true;
+
+    let nextAgent = merchant?.agent;
+    let allAgents: any = [merchant];
+    let current: any = merchant;
+
+    while (nextAgent) {
+      const merchantAgent = await this.agentRepository.findOne({
+        where: {
+          id: nextAgent?.id,
+        },
+        relations: ['agent', 'identity'],
+      });
+
+      allAgents.push(merchantAgent);
+
+      current = merchantAgent;
+      nextAgent = merchantAgent?.agent;
+    }
+
+    return allAgents;
+  }
+}
