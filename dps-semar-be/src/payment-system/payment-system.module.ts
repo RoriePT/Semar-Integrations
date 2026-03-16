@@ -42,6 +42,15 @@ import { CashfreeModule } from './cashfree/cashfree.module';
 import { UpiVendorModule } from 'src/upi-vendor/upi-vendor.module';
 import { NotificationModule } from 'src/notification/notification.module';
 import { Upi } from 'src/channel/entity/upi.entity';
+import { DokuModule } from './doku/doku.module';
+import { MidtransModule } from './midtrans/midtrans.module';
+import { XenditModule } from './xendit/xendit.module';
+import { Doku } from 'src/gateway/entities/doku.entity';
+import { Midtrans } from 'src/gateway/entities/midtrans.entity';
+import { Xendit } from 'src/gateway/entities/xendit.entity';
+import { DokuService } from './doku/doku.service';
+import { MidtransService } from './midtrans/midtrans.service';
+import { XenditService } from './xendit/xendit.service';
 
 @Module({
   imports: [
@@ -63,6 +72,9 @@ import { Upi } from 'src/channel/entity/upi.entity';
       Payout,
       Cashfree,
       Upi,
+      Doku,
+      Midtrans,
+      Xendit,
     ]),
     PhonePeModule,
     RazorpayModule,
@@ -80,6 +92,9 @@ import { Upi } from 'src/channel/entity/upi.entity';
     IdentityModule,
     CashfreeModule,
     NotificationModule,
+    DokuModule,
+    MidtransModule,
+    XenditModule,
   ],
   controllers: [PaymentSystemController, PaymentController],
   providers: [
@@ -90,6 +105,9 @@ import { Upi } from 'src/channel/entity/upi.entity';
     UniqpayService,
     MemberChannelService,
     UpiVendorChannelService,
+    DokuService,
+    MidtransService,
+    XenditService,
   ],
   exports: [PaymentSystemService],
 })

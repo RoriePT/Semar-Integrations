@@ -10,6 +10,9 @@ import { JwtModule } from 'src/services/jwt/jwt.module';
 import { Uniqpay } from './entities/uniqpay.entity';
 import { Payu } from './entities/payu.entity';
 import { Cashfree } from './entities/cashfree.entity';
+import { Doku } from './entities/doku.entity';
+import { Midtrans } from './entities/midtrans.entity';
+import { Xendit } from './entities/xendit.entity';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { Cashfree } from './entities/cashfree.entity';
       Uniqpay,
       Payu,
       Cashfree,
+      Doku,
+      Midtrans,
+      Xendit,
     ]),
     Identity,
     JwtModule,

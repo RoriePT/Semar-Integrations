@@ -87,13 +87,26 @@ export class AssignPaymentGatewayDto {
   environment: 'sandbox' | 'live';
 
   @ValidateIf((o) => o.environment === 'sandbox')
-  @IsEnum(['member', 'phonepe', 'razorpay', 'payu', 'cashfree', 'upi-vendor'])
+  @IsEnum([
+    'member',
+    'phonepe',
+    'razorpay',
+    'payu',
+    'cashfree',
+    'doku',
+    'midtrans',
+    'xendit',
+    'upi-vendor',
+  ])
   paymentGateway?:
     | 'member'
     | 'phonepe'
     | 'razorpay'
     | 'payu'
     | 'cashfree'
+    | 'doku'
+    | 'midtrans'
+    | 'xendit'
     | 'upi-vendor';
 }
 

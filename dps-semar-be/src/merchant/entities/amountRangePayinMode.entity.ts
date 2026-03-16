@@ -20,7 +20,16 @@ export class AmountRangePayinMode {
 
   @Column({
     type: 'enum',
-    enum: ['member', 'phonepe', 'razorpay', 'payu', 'cashfree'],
+    enum: [
+      'member',
+      'phonepe',
+      'razorpay',
+      'payu',
+      'cashfree',
+      'doku',
+      'midtrans',
+      'xendit',
+    ],
   })
   gateway: string;
 

@@ -11,6 +11,9 @@ export enum GatewayName {
   MEMBER = 'MEMBER',
   CASHFREE = 'CASHFREE',
   PAYU = 'PAYU',
+  DOKU = 'DOKU',
+  MIDTRANS = 'MIDTRANS',
+  XENDIT = 'XENDIT',
   MANUAL = 'MANUAL',
   UPI_VENDOR = 'UPI_VENDOR',
 }

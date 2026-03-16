@@ -33,6 +33,12 @@ import { CashfreeService } from './cashfree/cashfree.service';
 import { Cashfree } from 'src/gateway/entities/cashfree.entity';
 import { getPreferredGatewayForDefaultMode } from 'src/utils/utils';
 import { UpiVendorChannelService } from './upi-vendor/upi-vendor-channel.service';
+import { Doku } from 'src/gateway/entities/doku.entity';
+import { Midtrans } from 'src/gateway/entities/midtrans.entity';
+import { Xendit } from 'src/gateway/entities/xendit.entity';
+import { DokuService } from './doku/doku.service';
+import { MidtransService } from './midtrans/midtrans.service';
+import { XenditService } from './xendit/xendit.service';
 
 @Injectable()
 export class PaymentSystemUtilService {
@@ -49,6 +55,12 @@ export class PaymentSystemUtilService {
     private readonly cashfreeRepository: Repository<Cashfree>,
     @InjectRepository(Payu)
     private readonly payuRepository: Repository<Payu>,
+    @InjectRepository(Doku)
+    private readonly dokuRepository: Repository<Doku>,
+    @InjectRepository(Midtrans)
+    private readonly midtransRepository: Repository<Midtrans>,
+    @InjectRepository(Xendit)
+    private readonly xenditRepository: Repository<Xendit>,
     @InjectRepository(Payin)
     private readonly payinRepository: Repository<Payin>,
     @InjectRepository(PayinSandbox)
@@ -69,6 +81,9 @@ export class PaymentSystemUtilService {
     private readonly payinGateway: PayinGateway,
     private readonly cashfreeService: CashfreeService,
     private readonly upiVendorChannelService: UpiVendorChannelService,
+    private readonly dokuService: DokuService,
+    private readonly midtransService: MidtransService,
+    private readonly xenditService: XenditService,
   ) {}
 
   async fetchForDefault(
@@ -199,6 +214,36 @@ export class PaymentSystemUtilService {
       if (selectedGateway) return selectedGateway;
     }
 
+    if (selectedGateway?.toUpperCase() === GatewayName.DOKU) {
+      const selectedGateway = await this.getGatewayForPayin(
+        channelName,
+        payinAmount,
+        GatewayName.DOKU,
+      );
+
+      if (selectedGateway) return selectedGateway;
+    }
+
+    if (selectedGateway?.toUpperCase() === GatewayName.MIDTRANS) {
+      const selectedGateway = await this.getGatewayForPayin(
+        channelName,
+        payinAmount,
+        GatewayName.MIDTRANS,
+      );
+
+      if (selectedGateway) return selectedGateway;
+    }
+
+    if (selectedGateway?.toUpperCase() === GatewayName.XENDIT) {
+      const selectedGateway = await this.getGatewayForPayin(
+        channelName,
+        payinAmount,
+        GatewayName.XENDIT,
+      );
+
+      if (selectedGateway) return selectedGateway;
+    }
+
     // Fallbacks
     let selectedFallbackGateway;
     selectedFallbackGateway = await this.getGatewayForPayin(
@@ -228,6 +273,27 @@ export class PaymentSystemUtilService {
       GatewayName.CASHFREE,
     );
     if (selectedFallbackGateway) return selectedFallbackGateway;
+
+    selectedFallbackGateway = await this.getGatewayForPayin(
+      channelName,
+      payinAmount,
+      GatewayName.DOKU,
+    );
+    if (selectedFallbackGateway) return selectedFallbackGateway;
+
+    selectedFallbackGateway = await this.getGatewayForPayin(
+      channelName,
+      payinAmount,
+      GatewayName.MIDTRANS,
+    );
+    if (selectedFallbackGateway) return selectedFallbackGateway;
+
+    selectedFallbackGateway = await this.getGatewayForPayin(
+      channelName,
+      payinAmount,
+      GatewayName.XENDIT,
+    );
+    if (selectedFallbackGateway) return selectedFallbackGateway;
   }
 
   async fetchForProportional(merchant: Merchant, channelName, amount) {
@@ -251,6 +317,12 @@ export class PaymentSystemUtilService {
       ratios.find((ratio) => ratio.gateway === 'payu')?.ratio || 0;
     const cashfreeRatio =
       ratios.find((ratio) => ratio.gateway === 'cashfree')?.ratio || 0;
+    const dokuRatio =
+      ratios.find((ratio) => ratio.gateway === 'doku')?.ratio || 0;
+    const midtransRatio =
+      ratios.find((ratio) => ratio.gateway === 'midtrans')?.ratio || 0;
+    const xenditRatio =
+      ratios.find((ratio) => ratio.gateway === 'xendit')?.ratio || 0;
     const memberRatio =
       ratios.find((ratio) => ratio.gateway === 'member')?.ratio || 0;
 
@@ -271,6 +343,15 @@ export class PaymentSystemUtilService {
     const totalCashfreePayins = merchant.payin.filter(
       (payin) => payin.gatewayName === GatewayName.CASHFREE,
     ).length;
+    const totalDokuPayins = merchant.payin.filter(
+      (payin) => payin.gatewayName === GatewayName.DOKU,
+    ).length;
+    const totalMidtransPayins = merchant.payin.filter(
+      (payin) => payin.gatewayName === GatewayName.MIDTRANS,
+    ).length;
+    const totalXenditPayins = merchant.payin.filter(
+      (payin) => payin.gatewayName === GatewayName.XENDIT,
+    ).length;
 
     const desiredMemberOrders = Math.round(
       memberRatio * (totalPayins / baseRatio),
@@ -285,12 +366,22 @@ export class PaymentSystemUtilService {
     const desiredCashfreeOrders = Math.round(
       cashfreeRatio * (totalPayins / baseRatio),
     );
+    const desiredDokuOrders = Math.round(dokuRatio * (totalPayins / baseRatio));
+    const desiredMidtransOrders = Math.round(
+      midtransRatio * (totalPayins / baseRatio),
+    );
+    const desiredXenditOrders = Math.round(
+      xenditRatio * (totalPayins / baseRatio),
+    );
 
     const memberDiff = desiredMemberOrders - totalMemberPayins;
     const razorpayDiff = desiredRazorpayOrders - totalRazorpayPayins;
     const phonepeDiff = desiredPhonepeOrders - totalPhonepePayins;
     const payuDiff = desiredPayuOrders - totalPayuPayins;
     const cashfreeDiff = desiredCashfreeOrders - totalCashfreePayins;
+    const dokuDiff = desiredDokuOrders - totalDokuPayins;
+    const midtransDiff = desiredMidtransOrders - totalMidtransPayins;
+    const xenditDiff = desiredXenditOrders - totalXenditPayins;
 
     const diffs = [
       { name: 'member', diff: memberDiff, total: totalMemberPayins },
@@ -298,6 +389,9 @@ export class PaymentSystemUtilService {
       { name: 'phonepe', diff: phonepeDiff, total: totalPhonepePayins },
       { name: 'payu', diff: payuDiff, total: totalPayuPayins },
       { name: 'cashfree', diff: cashfreeDiff, total: totalCashfreePayins },
+      { name: 'doku', diff: dokuDiff, total: totalDokuPayins },
+      { name: 'midtrans', diff: midtransDiff, total: totalMidtransPayins },
+      { name: 'xendit', diff: xenditDiff, total: totalXenditPayins },
     ];
 
     diffs.sort((a, b) => {
@@ -351,6 +445,36 @@ export class PaymentSystemUtilService {
           channelName,
           amount,
           GatewayName.CASHFREE,
+        );
+
+        if (selectedGateway) return selectedGateway;
+      }
+
+      if (element.name === 'doku') {
+        const selectedGateway = await this.getGatewayForPayin(
+          channelName,
+          amount,
+          GatewayName.DOKU,
+        );
+
+        if (selectedGateway) return selectedGateway;
+      }
+
+      if (element.name === 'midtrans') {
+        const selectedGateway = await this.getGatewayForPayin(
+          channelName,
+          amount,
+          GatewayName.MIDTRANS,
+        );
+
+        if (selectedGateway) return selectedGateway;
+      }
+
+      if (element.name === 'xendit') {
+        const selectedGateway = await this.getGatewayForPayin(
+          channelName,
+          amount,
+          GatewayName.XENDIT,
         );
 
         if (selectedGateway) return selectedGateway;
@@ -468,6 +592,24 @@ export class PaymentSystemUtilService {
         });
         break;
 
+      case GatewayName.DOKU:
+        isGatewayEnabled = await this.dokuRepository.findOne({
+          where: whereConditions,
+        });
+        break;
+
+      case GatewayName.MIDTRANS:
+        isGatewayEnabled = await this.midtransRepository.findOne({
+          where: whereConditions,
+        });
+        break;
+
+      case GatewayName.XENDIT:
+        isGatewayEnabled = await this.xenditRepository.findOne({
+          where: whereConditions,
+        });
+        break;
+
       default:
         break;
     }
@@ -549,6 +691,24 @@ export class PaymentSystemUtilService {
 
         case GatewayName.CASHFREE:
           isGatewayEnabled = await this.cashfreeRepository.findOne({
+            where: whereConditions,
+          });
+          break;
+
+        case GatewayName.DOKU:
+          isGatewayEnabled = await this.dokuRepository.findOne({
+            where: whereConditions,
+          });
+          break;
+
+        case GatewayName.MIDTRANS:
+          isGatewayEnabled = await this.midtransRepository.findOne({
+            where: whereConditions,
+          });
+          break;
+
+        case GatewayName.XENDIT:
+          isGatewayEnabled = await this.xenditRepository.findOne({
             where: whereConditions,
           });
           break;
@@ -759,6 +919,39 @@ export class PaymentSystemUtilService {
         environment,
       });
 
+    if (selectedPaymentMode === GatewayName.DOKU)
+      res = await this.getPayPage({
+        userId: createdPayin.user?.userId,
+        amount: createdPayin.amount.toString(),
+        orderId: createdPayin.systemOrderId,
+        gateway: GatewayName.DOKU,
+        integrationId: merchant.integrationId,
+        channelName: createdPayin.channel,
+        environment,
+      });
+
+    if (selectedPaymentMode === GatewayName.MIDTRANS)
+      res = await this.getPayPage({
+        userId: createdPayin.user?.userId,
+        amount: createdPayin.amount.toString(),
+        orderId: createdPayin.systemOrderId,
+        gateway: GatewayName.MIDTRANS,
+        integrationId: merchant.integrationId,
+        channelName: createdPayin.channel,
+        environment,
+      });
+
+    if (selectedPaymentMode === GatewayName.XENDIT)
+      res = await this.getPayPage({
+        userId: createdPayin.user?.userId,
+        amount: createdPayin.amount.toString(),
+        orderId: createdPayin.systemOrderId,
+        gateway: GatewayName.XENDIT,
+        integrationId: merchant.integrationId,
+        channelName: createdPayin.channel,
+        environment,
+      });
+
     await this.payinRepository.update(createdPayin.id, {
       trackingId: res.trackingId,
       gatewayPaymentLink: res.url,
@@ -785,6 +978,15 @@ export class PaymentSystemUtilService {
     if (gateway === GatewayName.CASHFREE)
       return await this.cashfreeService.getPayPage(getPayPageDto);
 
+    if (gateway === GatewayName.DOKU)
+      return await this.dokuService.getPayPage(getPayPageDto);
+
+    if (gateway === GatewayName.MIDTRANS)
+      return await this.midtransService.getPayPage(getPayPageDto);
+
+    if (gateway === GatewayName.XENDIT)
+      return await this.xenditService.getPayPage(getPayPageDto);
+
     if (gateway === GatewayName.UPI_VENDOR)
       return await this.upiVendorChannelService.getPayPage(
         orderId,
@@ -801,6 +1003,9 @@ export class PaymentSystemUtilService {
       | 'razorpay'
       | 'payu'
       | 'cashfree'
+      | 'doku'
+      | 'midtrans'
+      | 'xendit'
       | 'upi-vendor',
     userId: string,
     environment: 'live' | 'sandbox',
@@ -811,6 +1016,9 @@ export class PaymentSystemUtilService {
     if (paymentMethod === 'razorpay') gatewayName = GatewayName.RAZORPAY;
     if (paymentMethod === 'payu') gatewayName = GatewayName.PAYU;
     if (paymentMethod === 'cashfree') gatewayName = GatewayName.CASHFREE;
+    if (paymentMethod === 'doku') gatewayName = GatewayName.DOKU;
+    if (paymentMethod === 'midtrans') gatewayName = GatewayName.MIDTRANS;
+    if (paymentMethod === 'xendit') gatewayName = GatewayName.XENDIT;
     if (paymentMethod === 'upi-vendor') gatewayName = GatewayName.UPI_VENDOR;
 
     try {

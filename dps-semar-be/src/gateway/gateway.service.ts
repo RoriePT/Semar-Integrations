@@ -20,10 +20,13 @@ import { loadChannelData } from './data/channel.data';
 import { GetChannelSettingsDto } from './dto/get-channel-settings.dto';
 import {
   loadCashfreeData,
+  loadDokuData,
+  loadMidtransData,
   loadPayuData,
   loadPhonepeData,
   loadRazorpayData,
   loadUniqpayData,
+  loadXenditData,
 } from './data/gateway.data';
 import { Uniqpay } from './entities/uniqpay.entity';
 import { UpdateUniqpayDto } from './dto/create-uniqpay.dto';
@@ -31,6 +34,12 @@ import { Payu } from './entities/payu.entity';
 import { UpdatePayuDto } from './dto/create-payu.dto';
 import { UpdateCashfreeDto } from './dto/create-cashfree.dto';
 import { Cashfree } from './entities/cashfree.entity';
+import { Doku } from './entities/doku.entity';
+import { Midtrans } from './entities/midtrans.entity';
+import { Xendit } from './entities/xendit.entity';
+import { UpdateDokuDto } from './dto/create-doku.dto';
+import { UpdateMidtransDto } from './dto/create-midtrans.dto';
+import { UpdateXenditDto } from './dto/create-xendit.dto';
 
 @Injectable()
 export class GatewayService {
@@ -47,6 +56,12 @@ export class GatewayService {
     private readonly payuRepository: Repository<Payu>,
     @InjectRepository(Cashfree)
     private readonly cashfreeRepository: Repository<Cashfree>,
+    @InjectRepository(Doku)
+    private readonly dokuRepository: Repository<Doku>,
+    @InjectRepository(Midtrans)
+    private readonly midtransRepository: Repository<Midtrans>,
+    @InjectRepository(Xendit)
+    private readonly xenditRepository: Repository<Xendit>,
 
     private jwtService: JwtService,
   ) {}
@@ -88,6 +103,24 @@ export class GatewayService {
     'sandbox_client_id',
     'sandbox_client_secret',
   ];
+
+  secretTextKeysDoku = [
+    'merchant_id',
+    'client_id',
+    'secret_key',
+    'sandbox_merchant_id',
+    'sandbox_client_id',
+    'sandbox_secret_key',
+  ];
+
+  secretTextKeysMidtrans = [
+    'server_key',
+    'client_key',
+    'sandbox_server_key',
+    'sandbox_client_key',
+  ];
+
+  secretTextKeysXendit = ['secret_key', 'sandbox_secret_key'];
 
   async createRazorPay() {
     const isGatewayExists = await this.razorpayRepository.find();
@@ -301,6 +334,104 @@ export class GatewayService {
     });
 
     await this.cashfreeRepository.update(existingData[0]?.id, updatedData);
+    return HttpStatus.OK;
+  }
+
+  async createDoku() {
+    const isGatewayExists = await this.dokuRepository.find();
+    if (isGatewayExists?.length > 0) throw new ConflictException();
+
+    const createDokuDto = loadDokuData();
+    this.secretTextKeysDoku.forEach((key) => {
+      createDokuDto[key] = this.jwtService.encryptValue(createDokuDto[key]);
+    });
+
+    await this.dokuRepository.save(createDokuDto);
+  }
+
+  async getDoku() {
+    const dokuData = await this.dokuRepository.find();
+    if (!dokuData) throw new NotFoundException();
+    return plainToInstance(GatewayResponseDto, dokuData[0]);
+  }
+
+  async updateDoku(updateDokuDto: UpdateDokuDto) {
+    const existingData = await this.dokuRepository.find();
+    if (!existingData) throw new NotFoundException();
+
+    const updatedData = Object.assign({}, existingData[0], updateDokuDto);
+    this.secretTextKeysDoku.forEach((key) => {
+      if (updateDokuDto[key])
+        updatedData[key] = this.jwtService.encryptValue(updatedData[key]);
+    });
+
+    await this.dokuRepository.update(existingData[0]?.id, updatedData);
+    return HttpStatus.OK;
+  }
+
+  async createMidtrans() {
+    const isGatewayExists = await this.midtransRepository.find();
+    if (isGatewayExists?.length > 0) throw new ConflictException();
+
+    const createMidtransDto = loadMidtransData();
+    this.secretTextKeysMidtrans.forEach((key) => {
+      createMidtransDto[key] = this.jwtService.encryptValue(
+        createMidtransDto[key],
+      );
+    });
+
+    await this.midtransRepository.save(createMidtransDto);
+  }
+
+  async getMidtrans() {
+    const midtransData = await this.midtransRepository.find();
+    if (!midtransData) throw new NotFoundException();
+    return plainToInstance(GatewayResponseDto, midtransData[0]);
+  }
+
+  async updateMidtrans(updateMidtransDto: UpdateMidtransDto) {
+    const existingData = await this.midtransRepository.find();
+    if (!existingData) throw new NotFoundException();
+
+    const updatedData = Object.assign({}, existingData[0], updateMidtransDto);
+    this.secretTextKeysMidtrans.forEach((key) => {
+      if (updateMidtransDto[key])
+        updatedData[key] = this.jwtService.encryptValue(updatedData[key]);
+    });
+
+    await this.midtransRepository.update(existingData[0]?.id, updatedData);
+    return HttpStatus.OK;
+  }
+
+  async createXendit() {
+    const isGatewayExists = await this.xenditRepository.find();
+    if (isGatewayExists?.length > 0) throw new ConflictException();
+
+    const createXenditDto = loadXenditData();
+    this.secretTextKeysXendit.forEach((key) => {
+      createXenditDto[key] = this.jwtService.encryptValue(createXenditDto[key]);
+    });
+
+    await this.xenditRepository.save(createXenditDto);
+  }
+
+  async getXendit() {
+    const xenditData = await this.xenditRepository.find();
+    if (!xenditData) throw new NotFoundException();
+    return plainToInstance(GatewayResponseDto, xenditData[0]);
+  }
+
+  async updateXendit(updateXenditDto: UpdateXenditDto) {
+    const existingData = await this.xenditRepository.find();
+    if (!existingData) throw new NotFoundException();
+
+    const updatedData = Object.assign({}, existingData[0], updateXenditDto);
+    this.secretTextKeysXendit.forEach((key) => {
+      if (updateXenditDto[key])
+        updatedData[key] = this.jwtService.encryptValue(updatedData[key]);
+    });
+
+    await this.xenditRepository.update(existingData[0]?.id, updatedData);
     return HttpStatus.OK;
   }
 

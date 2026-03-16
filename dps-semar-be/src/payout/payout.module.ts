@@ -28,6 +28,9 @@ import { HttpModule } from '@nestjs/axios';
 import { JwtModule } from 'src/services/jwt/jwt.module';
 import { ChannelModule } from 'src/channel/channel.module';
 import { CashfreeModule } from 'src/payment-system/cashfree/cashfree.module';
+import { DokuModule } from 'src/payment-system/doku/doku.module';
+import { MidtransModule } from 'src/payment-system/midtrans/midtrans.module';
+import { XenditModule } from 'src/payment-system/xendit/xendit.module';
 
 @Module({
   imports: [
@@ -56,6 +59,9 @@ import { CashfreeModule } from 'src/payment-system/cashfree/cashfree.module';
     JwtModule,
     ChannelModule,
     CashfreeModule,
+    DokuModule,
+    MidtransModule,
+    XenditModule,
   ],
   controllers: [PayoutController],
   providers: [

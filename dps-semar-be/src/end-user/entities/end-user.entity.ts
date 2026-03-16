@@ -39,6 +39,7 @@ export class EndUser {
   netBankingDetails: {
     bankName: string;
     ifscCode: string;
+    bankCode?: string;
     beneficiaryName: string;
     accountNumber: string;
   };

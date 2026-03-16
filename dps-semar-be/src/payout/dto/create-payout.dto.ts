@@ -55,11 +55,15 @@ class NetBankingDetailsDto {
   accountNumber: string;
 
   @IsString()
-  @IsString()
+  @IsOptional()
   @Matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, {
     message: 'Invalid IFSC code format',
   })
-  ifscCode: string;
+  ifscCode?: string;
+
+  @IsString()
+  @IsOptional()
+  bankCode?: string;
 }
 
 class EWalletDetailsDto {

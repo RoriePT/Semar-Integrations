@@ -214,6 +214,62 @@ export const mapAndGetGatewayPayoutStatus = (
 
       return 'PENDING';
 
+    case GatewayName.DOKU:
+      if (
+        status === 'SUCCESS' ||
+        status === 'COMPLETED' ||
+        status === 'PAID' ||
+        status === 'SETTLEMENT'
+      )
+        return 'SUCCESS';
+
+      if (
+        status === 'FAILED' ||
+        status === 'EXPIRED' ||
+        status === 'CANCELLED' ||
+        status === 'REJECTED'
+      )
+        return 'FAILED';
+
+      return 'PENDING';
+
+    case GatewayName.MIDTRANS:
+      if (
+        status === 'settlement' ||
+        status === 'capture' ||
+        status === 'SUCCESS'
+      )
+        return 'SUCCESS';
+
+      if (
+        status === 'deny' ||
+        status === 'expire' ||
+        status === 'cancel' ||
+        status === 'failed' ||
+        status === 'FAILED'
+      )
+        return 'FAILED';
+
+      return 'PENDING';
+
+    case GatewayName.XENDIT:
+      if (
+        status === 'SUCCEEDED' ||
+        status === 'COMPLETED' ||
+        status === 'PAID' ||
+        status === 'SUCCESS'
+      )
+        return 'SUCCESS';
+
+      if (
+        status === 'FAILED' ||
+        status === 'EXPIRED' ||
+        status === 'CANCELLED'
+      )
+        return 'FAILED';
+
+      return 'PENDING';
+
     default:
       return 'PENDING';
   }
@@ -275,6 +331,37 @@ export const sanitizeCashreeDetails = (response) => {
   };
 };
 
+export const sanitizeDokuDetails = (response) => {
+  return {
+    'Gateway Invoice': response?.order?.invoice_number || undefined,
+    'Gateway Transaction Id':
+      response?.transaction?.id || response?.transaction_id || undefined,
+    'Payment Method':
+      response?.additional_info?.channel_code || response?.channel || undefined,
+    status:
+      response?.transaction?.status || response?.status || response?.order?.status,
+  };
+};
+
+export const sanitizeMidtransDetails = (response) => {
+  return {
+    'Gateway Transaction Id': response?.transaction_id || undefined,
+    'Payment Method':
+      response?.payment_type || response?.channel_response_message || undefined,
+    'Settlement Time': response?.settlement_time || undefined,
+    status: response?.transaction_status || undefined,
+  };
+};
+
+export const sanitizeXenditDetails = (response) => {
+  return {
+    'Gateway Invoice': response?.external_id || undefined,
+    'Gateway Transaction Id': response?.payment_id || response?.id || undefined,
+    'Payment Method': response?.payment_method || response?.channel_code,
+    status: response?.status || undefined,
+  };
+};
+
 export const sanitizeTransactionDetails = (
   gatewayName: GatewayName,
   response: any,
@@ -294,6 +381,13 @@ export const sanitizeTransactionDetails = (
 
   if (gatewayName === GatewayName.CASHFREE)
     return sanitizeCashreeDetails(response);
+
+  if (gatewayName === GatewayName.DOKU) return sanitizeDokuDetails(response);
+
+  if (gatewayName === GatewayName.MIDTRANS)
+    return sanitizeMidtransDetails(response);
+
+  if (gatewayName === GatewayName.XENDIT) return sanitizeXenditDetails(response);
 };
 
 export const parseUserChannelDetails = (user: EndUser) => {

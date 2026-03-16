@@ -51,6 +51,9 @@ import { firstValueFrom } from 'rxjs';
 import { JwtService } from 'src/services/jwt/jwt.service';
 import { ChannelService } from 'src/channel/channel.service';
 import { CashfreeService } from 'src/payment-system/cashfree/cashfree.service';
+import { DokuService } from 'src/payment-system/doku/doku.service';
+import { MidtransService } from 'src/payment-system/midtrans/midtrans.service';
+import { XenditService } from 'src/payment-system/xendit/xendit.service';
 
 @Injectable()
 export class PayoutService {
@@ -84,6 +87,9 @@ export class PayoutService {
     private readonly jwtService: JwtService,
     private readonly channelService: ChannelService,
     private readonly cashfreeService: CashfreeService,
+    private readonly dokuService: DokuService,
+    private readonly midtransService: MidtransService,
+    private readonly xenditService: XenditService,
 
     @Inject(forwardRef(() => AlertService))
     private readonly alertService: AlertService,
@@ -99,6 +105,16 @@ export class PayoutService {
       eWalletDetails,
       amount,
     } = payoutDetailsDto;
+
+    if (
+      paymentMethod === ChannelName.BANKING &&
+      !netBankingDetails?.ifscCode &&
+      !netBankingDetails?.bankCode
+    ) {
+      throw new BadRequestException(
+        'Either ifscCode or bankCode is required for NET_BANKING payouts.',
+      );
+    }
 
     const existingPayoutWithSameOrderId = await this.payoutRepository.findOne({
       where: {
@@ -789,6 +805,21 @@ export class PayoutService {
 
           if (payout.gatewayName === GatewayName.CASHFREE)
             response = await this.cashfreeService.getPayoutDetails(
+              payout.transactionId,
+            );
+
+          if (payout.gatewayName === GatewayName.DOKU)
+            response = await this.dokuService.getPayoutDetails(
+              payout.transactionId,
+            );
+
+          if (payout.gatewayName === GatewayName.MIDTRANS)
+            response = await this.midtransService.getPayoutDetails(
+              payout.transactionId,
+            );
+
+          if (payout.gatewayName === GatewayName.XENDIT)
+            response = await this.xenditService.getPayoutDetails(
               payout.transactionId,
             );
 

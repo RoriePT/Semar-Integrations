@@ -10,7 +10,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import arrayMove from "array-move";
+import { arrayMoveImmutable } from "array-move";
 import { useEffect, useState } from "react";
 import SortableList, { SortableItem } from "react-easy-sort";
 import { GatewayName } from "../../../../../../../api/gateway";
@@ -46,13 +46,15 @@ const GatewayAndTimeouts = () => {
   );
 
   const onSortEndPayin = (oldIndex: number, newIndex: number) =>
-    setPayinGateways((array) => arrayMove(array, oldIndex, newIndex));
+    setPayinGateways((array) => arrayMoveImmutable(array, oldIndex, newIndex));
 
   const onSortEndPayout = (oldIndex: number, newIndex: number) =>
-    setPayoutGateways((array) => arrayMove(array, oldIndex, newIndex));
+    setPayoutGateways((array) => arrayMoveImmutable(array, oldIndex, newIndex));
 
   const onSortEndWithdrawal = (oldIndex: number, newIndex: number) =>
-    setWithdrawalGateways((array) => arrayMove(array, oldIndex, newIndex));
+    setWithdrawalGateways((array) =>
+      arrayMoveImmutable(array, oldIndex, newIndex)
+    );
 
   useEffect(() => {
     if (

@@ -45,13 +45,26 @@ export class CreatePaymentOrderDto {
   environment: 'sandbox' | 'live';
 
   @IsOptional()
-  @IsEnum(['member', 'razorpay', 'phonepe', 'payu', 'cashfree', 'upi-vendor'])
+  @IsEnum([
+    'member',
+    'razorpay',
+    'phonepe',
+    'payu',
+    'cashfree',
+    'doku',
+    'midtrans',
+    'xendit',
+    'upi-vendor',
+  ])
   paymentMethod?:
     | 'member'
     | 'razorpay'
     | 'phonepe'
     | 'payu'
     | 'cashfree'
+    | 'doku'
+    | 'midtrans'
+    | 'xendit'
     | 'upi-vendor';
 
   @IsOptional()
@@ -142,13 +155,26 @@ export class CreatePaymentOrderSandboxDto {
   @IsNumber()
   merchantId: number;
 
-  @IsEnum(['member', 'razorpay', 'phonepe', 'payu', 'cashfree', 'upi-vendor'])
+  @IsEnum([
+    'member',
+    'razorpay',
+    'phonepe',
+    'payu',
+    'cashfree',
+    'doku',
+    'midtrans',
+    'xendit',
+    'upi-vendor',
+  ])
   paymentMethod:
     | 'member'
     | 'razorpay'
     | 'phonepe'
     | 'payu'
     | 'cashfree'
+    | 'doku'
+    | 'midtrans'
+    | 'xendit'
     | 'upi-vendor';
 
   @IsOptional()

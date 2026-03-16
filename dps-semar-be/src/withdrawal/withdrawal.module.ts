@@ -26,6 +26,9 @@ import { Config } from 'src/channel/entity/config.entity';
 import { RazorpayModule } from 'src/payment-system/razorpay/razorpay.module';
 import { UniqpayModule } from 'src/payment-system/uniqpay/uniqpay.module';
 import { CashfreeModule } from 'src/payment-system/cashfree/cashfree.module';
+import { DokuModule } from 'src/payment-system/doku/doku.module';
+import { MidtransModule } from 'src/payment-system/midtrans/midtrans.module';
+import { XenditModule } from 'src/payment-system/xendit/xendit.module';
 
 @Module({
   imports: [
@@ -52,6 +55,9 @@ import { CashfreeModule } from 'src/payment-system/cashfree/cashfree.module';
     RazorpayModule,
     UniqpayModule,
     CashfreeModule,
+    DokuModule,
+    MidtransModule,
+    XenditModule,
   ],
   controllers: [WithdrawalController],
   providers: [

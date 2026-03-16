@@ -57,3 +57,36 @@ export const loadCashfreeData = () => {
     sandbox_client_secret: 'dummy',
   };
 };
+
+export const loadDokuData = () => {
+  return {
+    incoming: true,
+    outgoing: true,
+    merchant_id: 'dummy',
+    client_id: 'dummy',
+    secret_key: 'dummy',
+    sandbox_merchant_id: 'dummy',
+    sandbox_client_id: 'dummy',
+    sandbox_secret_key: 'dummy',
+  };
+};
+
+export const loadMidtransData = () => {
+  return {
+    incoming: true,
+    outgoing: true,
+    server_key: 'dummy',
+    client_key: 'dummy',
+    sandbox_server_key: 'dummy',
+    sandbox_client_key: 'dummy',
+  };
+};
+
+export const loadXenditData = () => {
+  return {
+    incoming: true,
+    outgoing: true,
+    secret_key: 'dummy',
+    sandbox_secret_key: 'dummy',
+  };
+};

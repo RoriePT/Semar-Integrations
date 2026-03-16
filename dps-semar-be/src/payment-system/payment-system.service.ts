@@ -46,6 +46,9 @@ import { NotificationService } from 'src/notification/notification.service';
 import { NotificationType } from 'src/utils/enum/enum';
 import { Upi } from 'src/channel/entity/upi.entity';
 import { roundOffAmount } from 'src/utils/utils';
+import { DokuService } from './doku/doku.service';
+import { MidtransService } from './midtrans/midtrans.service';
+import { XenditService } from './xendit/xendit.service';
 
 // const paymentPageBaseUrl = 'http://localhost:5174';
 @Injectable()
@@ -71,6 +74,9 @@ export class PaymentSystemService {
     private readonly upiVendorChannelService: UpiVendorChannelService,
     private readonly payinGateway: PayinGateway,
     private readonly cashfreeService: CashfreeService,
+    private readonly dokuService: DokuService,
+    private readonly midtransService: MidtransService,
+    private readonly xenditService: XenditService,
     private readonly upiVendorQueueService: UpiVendorQueueService,
     private readonly notificationService: NotificationService,
   ) {}
@@ -298,6 +304,9 @@ export class PaymentSystemService {
           | 'phonepe'
           | 'payu'
           | 'cashfree'
+          | 'doku'
+          | 'midtrans'
+          | 'xendit'
           | 'upi-vendor') || null,
       successUrl,
       failureUrl,
@@ -345,6 +354,21 @@ export class PaymentSystemService {
         return body?.forInternalUsers
           ? await this.cashfreeService.makePayoutPaymentForInternalUsers(body)
           : await this.cashfreeService.makePayoutPaymentForEndUsers(body);
+
+      case GatewayName.DOKU:
+        return body?.forInternalUsers
+          ? await this.dokuService.makePayoutPaymentForInternalUsers(body)
+          : await this.dokuService.makePayoutPaymentForEndUsers(body);
+
+      case GatewayName.MIDTRANS:
+        return body?.forInternalUsers
+          ? await this.midtransService.makePayoutPaymentForInternalUsers(body)
+          : await this.midtransService.makePayoutPaymentForEndUsers(body);
+
+      case GatewayName.XENDIT:
+        return body?.forInternalUsers
+          ? await this.xenditService.makePayoutPaymentForInternalUsers(body)
+          : await this.xenditService.makePayoutPaymentForEndUsers(body);
 
       default:
         return;
@@ -409,6 +433,33 @@ export class PaymentSystemService {
         if (!payinOrder || !payinOrder.trackingId) return;
 
         res = await this.cashfreeService.getPaymentStatus(
+          payinOrder.trackingId,
+          environment,
+        );
+      }
+
+      if (payinOrder.gatewayName === GatewayName.DOKU) {
+        if (!payinOrder) return;
+
+        res = await this.dokuService.getPaymentStatus(
+          payinOrder.trackingId || payinOrder.systemOrderId,
+          environment,
+        );
+      }
+
+      if (payinOrder.gatewayName === GatewayName.MIDTRANS) {
+        if (!payinOrder || !payinOrder.systemOrderId) return;
+
+        res = await this.midtransService.getPaymentStatus(
+          payinOrder.systemOrderId,
+          environment,
+        );
+      }
+
+      if (payinOrder.gatewayName === GatewayName.XENDIT) {
+        if (!payinOrder || !payinOrder.trackingId) return;
+
+        res = await this.xenditService.getPaymentStatus(
           payinOrder.trackingId,
           environment,
         );
@@ -480,11 +531,12 @@ export class PaymentSystemService {
 
       if (res && res?.status === 'FAILED')
         return { status: res?.status, redirectUrl: payinOrder.failureUrl };
-    } else {
-      if (res) return { status: res?.status };
+    } else if (res) {
+      return { status: res?.status };
     }
 
-    return { status: res?.status };
+    // Never return an empty object from this endpoint.
+    return { status: 'PENDING' };
   }
 
   async getOrderDetailsForIntegrationKit(

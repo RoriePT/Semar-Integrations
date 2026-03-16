@@ -38,6 +38,9 @@ import { UniqpayService } from 'src/payment-system/uniqpay/uniqpay.service';
 import { Merchant } from 'src/merchant/entities/merchant.entity';
 import { Agent } from 'src/agent/entities/agent.entity';
 import { CashfreeService } from 'src/payment-system/cashfree/cashfree.service';
+import { DokuService } from 'src/payment-system/doku/doku.service';
+import { MidtransService } from 'src/payment-system/midtrans/midtrans.service';
+import { XenditService } from 'src/payment-system/xendit/xendit.service';
 
 @Injectable()
 export class WithdrawalService {
@@ -67,6 +70,9 @@ export class WithdrawalService {
     private readonly razorpayService: RazorpayService,
     private readonly uniqpayService: UniqpayService,
     private readonly cashfreeService: CashfreeService,
+    private readonly dokuService: DokuService,
+    private readonly midtransService: MidtransService,
+    private readonly xenditService: XenditService,
   ) {}
 
   async create(createWithdrawalDto: CreateWithdrawalDto, email) {
@@ -535,6 +541,21 @@ export class WithdrawalService {
 
           if (withdrawal.gatewayName === GatewayName.CASHFREE)
             response = await this.cashfreeService.getPayoutDetails(
+              withdrawal.transactionId,
+            );
+
+          if (withdrawal.gatewayName === GatewayName.DOKU)
+            response = await this.dokuService.getPayoutDetails(
+              withdrawal.transactionId,
+            );
+
+          if (withdrawal.gatewayName === GatewayName.MIDTRANS)
+            response = await this.midtransService.getPayoutDetails(
+              withdrawal.transactionId,
+            );
+
+          if (withdrawal.gatewayName === GatewayName.XENDIT)
+            response = await this.xenditService.getPayoutDetails(
               withdrawal.transactionId,
             );
 

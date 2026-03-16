@@ -31,6 +31,9 @@ export class LoadController {
       await this.gatewaysService.createUniqpay();
       await this.gatewaysService.createPayu();
       await this.gatewaysService.createCashfree();
+      await this.gatewaysService.createDoku();
+      await this.gatewaysService.createMidtrans();
+      await this.gatewaysService.createXendit();
       await this.sysConfigService.create();
 
       return HttpStatus.CREATED;

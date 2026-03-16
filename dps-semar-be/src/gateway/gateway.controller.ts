@@ -10,6 +10,9 @@ import { Role } from 'src/utils/enum/enum';
 import { UpdateUniqpayDto } from './dto/create-uniqpay.dto';
 import { UpdatePayuDto } from './dto/create-payu.dto';
 import { UpdateCashfreeDto } from './dto/create-cashfree.dto';
+import { UpdateDokuDto } from './dto/create-doku.dto';
+import { UpdateMidtransDto } from './dto/create-midtrans.dto';
+import { UpdateXenditDto } from './dto/create-xendit.dto';
 
 @Controller('gateway')
 @UseGuards(RolesGuard)
@@ -104,6 +107,60 @@ export class GatewayController {
   @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
   UpdateCashfree(@Body() updateCashfreeDto: UpdateCashfreeDto) {
     return this.gatewayService.updateCashfree(updateCashfreeDto);
+  }
+
+  @Post('doku/create')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  CreateDoku() {
+    return this.gatewayService.createDoku();
+  }
+
+  @Get('doku')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  getDokuConfig() {
+    return this.gatewayService.getDoku();
+  }
+
+  @Post('doku/update')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  UpdateDoku(@Body() updateDokuDto: UpdateDokuDto) {
+    return this.gatewayService.updateDoku(updateDokuDto);
+  }
+
+  @Post('midtrans/create')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  CreateMidtrans() {
+    return this.gatewayService.createMidtrans();
+  }
+
+  @Get('midtrans')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  getMidtransConfig() {
+    return this.gatewayService.getMidtrans();
+  }
+
+  @Post('midtrans/update')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  UpdateMidtrans(@Body() updateMidtransDto: UpdateMidtransDto) {
+    return this.gatewayService.updateMidtrans(updateMidtransDto);
+  }
+
+  @Post('xendit/create')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  CreateXendit() {
+    return this.gatewayService.createXendit();
+  }
+
+  @Get('xendit')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  getXenditConfig() {
+    return this.gatewayService.getXendit();
+  }
+
+  @Post('xendit/update')
+  @Roles(Role.SUB_ADMIN, Role.SUPER_ADMIN)
+  UpdateXendit(@Body() updateXenditDto: UpdateXenditDto) {
+    return this.gatewayService.updateXendit(updateXenditDto);
   }
 
   @Get('channel-settings/all')

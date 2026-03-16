@@ -368,6 +368,27 @@ export class PayinService {
         });
         break;
 
+      case 'doku':
+        await this.payinSandboxRepository.update(payin.id, {
+          status: OrderStatus.ASSIGNED,
+          gatewayName: GatewayName.DOKU,
+        });
+        break;
+
+      case 'midtrans':
+        await this.payinSandboxRepository.update(payin.id, {
+          status: OrderStatus.ASSIGNED,
+          gatewayName: GatewayName.MIDTRANS,
+        });
+        break;
+
+      case 'xendit':
+        await this.payinSandboxRepository.update(payin.id, {
+          status: OrderStatus.ASSIGNED,
+          gatewayName: GatewayName.XENDIT,
+        });
+        break;
+
       default:
         break;
     }

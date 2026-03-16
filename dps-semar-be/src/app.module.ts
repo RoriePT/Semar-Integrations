@@ -62,7 +62,7 @@ import { SettlementModule } from './settlement/settlement.module';
         password: configService.get('PG_PASSWORD'),
         database: configService.get('PG_DATABASE'),
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: false, // remember to change on production for true
         namingStrategy: new SnakeNamingStrategy(),
         ssl: {
           rejectUnauthorized: false,
