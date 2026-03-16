@@ -66,7 +66,7 @@ export class DokuService {
   }
 
   private getChannelCode(channelName: ChannelName) {
-    if (channelName === ChannelName.UPI)
+    if (channelName === ChannelName.UPI || channelName === ChannelName.QRIS)
       return process.env.DOKU_QRIS_CHANNEL_CODE || 'EMONEY_QRIS';
 
     if (channelName === ChannelName.BANKING)

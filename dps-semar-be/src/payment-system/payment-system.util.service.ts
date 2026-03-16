@@ -86,6 +86,41 @@ export class PaymentSystemUtilService {
     private readonly xenditService: XenditService,
   ) {}
 
+  private isIndonesianGateway(gateway: GatewayName) {
+    return [GatewayName.DOKU, GatewayName.MIDTRANS, GatewayName.XENDIT].includes(
+      gateway,
+    );
+  }
+
+  private resolveChannelForGateway(
+    channelName: ChannelName | string,
+    gateway: GatewayName,
+  ): ChannelName | null {
+    const normalized = (() => {
+      if (channelName === ChannelName.UPI || channelName === 'upi')
+        return ChannelName.UPI;
+      if (channelName === ChannelName.QRIS || channelName === 'qris')
+        return ChannelName.QRIS;
+      if (channelName === ChannelName.BANKING || channelName === 'netBanking')
+        return ChannelName.BANKING;
+      if (channelName === ChannelName.E_WALLET || channelName === 'eWallet')
+        return ChannelName.E_WALLET;
+
+      return channelName as ChannelName;
+    })();
+
+    // Indonesian PGs must use QRIS; Indian flows remain on UPI.
+    if (this.isIndonesianGateway(gateway)) {
+      if (normalized === ChannelName.UPI || normalized === ChannelName.QRIS)
+        return ChannelName.QRIS;
+      return normalized;
+    }
+
+    // Prevent routing QRIS to non-Indonesian gateways.
+    if (normalized === ChannelName.QRIS) return null;
+    return normalized;
+  }
+
   async fetchForDefault(
     merchant: Merchant,
     channelName,
@@ -548,12 +583,6 @@ export class PaymentSystemUtilService {
     let isGatewayEnabled;
     let whereConditions;
 
-    const channelMap = {
-      upi: ChannelName.UPI,
-      netBanking: ChannelName.BANKING,
-      eWallet: ChannelName.E_WALLET,
-    };
-
     if (forIncoming)
       whereConditions = {
         incoming: true,
@@ -616,11 +645,14 @@ export class PaymentSystemUtilService {
 
     let channelEnabled = null;
     if (forIncoming) {
+      const resolvedChannel = this.resolveChannelForGateway(channelName, gateway);
+      if (!resolvedChannel) return null;
+
       channelEnabled = await this.channelSettingsRepository.findOne({
         where: {
           gatewayName: gateway,
           enabled: true,
-          channelName: channelMap[channelName],
+          channelName: resolvedChannel,
           type: PaymentType.INCOMING,
           minAmount: LessThanOrEqual(amount),
           maxAmount: MoreThanOrEqual(amount),
@@ -642,12 +674,6 @@ export class PaymentSystemUtilService {
     amount = 0,
   ): Promise<GatewayName | null> {
     // Iterates through the gateway priority chain and returns the first gateway name found which is enabled
-
-    const channelMap = {
-      upi: ChannelName.UPI,
-      netBanking: ChannelName.BANKING,
-      eWallet: ChannelName.E_WALLET,
-    };
 
     for (const key in gatewayObject) {
       const gateway = gatewayObject[key];
@@ -719,11 +745,14 @@ export class PaymentSystemUtilService {
 
       let channelEnabled = null;
       if (forIncoming) {
+        const resolvedChannel = this.resolveChannelForGateway(channelName, gateway);
+        if (!resolvedChannel) continue;
+
         channelEnabled = await this.channelSettingsRepository.findOne({
           where: {
             gatewayName: gateway,
             enabled: true,
-            channelName: channelMap[channelName],
+            channelName: resolvedChannel,
             type: PaymentType.INCOMING,
             minAmount: LessThanOrEqual(amount),
             maxAmount: MoreThanOrEqual(amount),
@@ -800,6 +829,7 @@ export class PaymentSystemUtilService {
 
     let channelNameMap = {
       UPI: 'upi',
+      QRIS: 'upi',
       NET_BANKING: 'netBanking',
       E_WALLET: 'eWallet',
     };
@@ -842,6 +872,9 @@ export class PaymentSystemUtilService {
       );
 
     const isMember = !!selectedPaymentMode?.id;
+    const gatewayChannel = !isMember
+      ? this.resolveChannelForGateway(createdPayin.channel, selectedPaymentMode)
+      : createdPayin.channel;
     let paymentDetails;
 
     if (isMember) {
@@ -851,7 +884,7 @@ export class PaymentSystemUtilService {
         where: {
           gatewayName: selectedPaymentMode,
           type: PaymentType.INCOMING,
-          channelName: createdPayin.channel,
+          channelName: gatewayChannel,
         },
       });
     }
@@ -867,6 +900,17 @@ export class PaymentSystemUtilService {
     };
 
     await this.payinService.updatePayinStatusToAssigned(body);
+
+    if (
+      !isMember &&
+      gatewayChannel &&
+      gatewayChannel !== createdPayin.channel
+    ) {
+      await this.payinRepository.update(createdPayin.id, {
+        channel: gatewayChannel,
+      });
+      createdPayin.channel = gatewayChannel;
+    }
 
     let res = null;
     if (isMember)
@@ -1022,12 +1066,30 @@ export class PaymentSystemUtilService {
     if (paymentMethod === 'upi-vendor') gatewayName = GatewayName.UPI_VENDOR;
 
     try {
+      const sandboxChannel = this.resolveChannelForGateway(
+        createdPayin.channel,
+        gatewayName,
+      );
+
+      if (!sandboxChannel) {
+        throw new NotFoundException(
+          `Requested channel ${createdPayin.channel} is not supported for ${gatewayName}.`,
+        );
+      }
+
+      if (sandboxChannel !== createdPayin.channel) {
+        await this.payinSandboxRepository.update(createdPayin.id, {
+          channel: sandboxChannel,
+        });
+        createdPayin.channel = sandboxChannel;
+      }
+
       const res: any = await this.getPayPage({
         orderId: createdPayin.systemOrderId,
         userId: userId,
         amount: createdPayin.amount.toString(),
         gateway: gatewayName,
-        channelName: createdPayin.channel,
+        channelName: sandboxChannel,
         integrationId: merchant.integrationId,
         environment,
       });

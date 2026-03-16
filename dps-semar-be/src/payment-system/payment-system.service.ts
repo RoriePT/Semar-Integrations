@@ -81,6 +81,21 @@ export class PaymentSystemService {
     private readonly notificationService: NotificationService,
   ) {}
 
+  private mapPaymentMethodForApi(
+    channel: ChannelName,
+    gatewayName?: GatewayName,
+  ): ChannelName | 'QRIS' {
+    if (
+      channel === ChannelName.UPI &&
+      [GatewayName.DOKU, GatewayName.MIDTRANS, GatewayName.XENDIT].includes(
+        gatewayName,
+      )
+    ) {
+      return 'QRIS';
+    }
+    return channel;
+  }
+
   async getPayPage(getPayPageDto: GetPayPageDto) {
     await this.utilService.getPayPage(getPayPageDto);
   }
@@ -574,7 +589,10 @@ export class PaymentSystemService {
       transactionDetails: {
         id: payin.transactionId,
         amount: payin.amount,
-        paymentMethod: payin.channel,
+        paymentMethod: this.mapPaymentMethodForApi(
+          payin.channel,
+          payin.gatewayName,
+        ),
         time: payin.updatedAt,
       },
     };
@@ -635,7 +653,10 @@ export class PaymentSystemService {
         transactionDetails: {
           id: payin.transactionId,
           amount: payin.amount,
-          paymentMethod: payin.channel,
+          paymentMethod: this.mapPaymentMethodForApi(
+            payin.channel,
+            payin.gatewayName,
+          ),
           time: payin.updatedAt,
         },
       },

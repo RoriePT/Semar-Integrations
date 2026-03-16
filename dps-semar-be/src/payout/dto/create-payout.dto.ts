@@ -87,7 +87,7 @@ export class CreatePayoutDto {
   amount: number;
 
   @IsNotEmpty({ message: 'Payment Method must not be empty!' })
-  @IsEnum(ChannelName, {
+  @IsEnum([ChannelName.UPI, ChannelName.BANKING, ChannelName.E_WALLET], {
     message:
       'Payment method must be any one value from - UPI, NET_BANKING, E_WALLET',
   })

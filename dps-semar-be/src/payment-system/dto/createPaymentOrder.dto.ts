@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -9,6 +10,18 @@ import {
   Matches,
 } from 'class-validator';
 import { ChannelName } from 'src/utils/enum/enum';
+
+const normalizeChannel = ({ value }) => {
+  if (typeof value !== 'string') return value;
+
+  const upper = value.toUpperCase();
+  if (upper === 'NET_BANKING') return ChannelName.BANKING;
+  if (upper === 'E_WALLET') return ChannelName.E_WALLET;
+  if (upper === 'UPI') return ChannelName.UPI;
+  if (upper === 'QRIS') return ChannelName.QRIS;
+
+  return value;
+};
 
 export class CreatePaymentOrderDto {
   @IsNumber()
@@ -39,6 +52,7 @@ export class CreatePaymentOrderDto {
   integrationId: string;
 
   @IsEnum(ChannelName)
+  @Transform(normalizeChannel)
   channel: ChannelName;
 
   @IsEnum(['sandbox', 'live'])
@@ -122,6 +136,7 @@ export class CreatePaymentOrderDtoAdmin {
   userMobileNumber: string;
 
   @IsEnum(ChannelName)
+  @Transform(normalizeChannel)
   channel: ChannelName;
 }
 
@@ -150,6 +165,7 @@ export class CreatePaymentOrderSandboxDto {
   userMobileNumber?: string;
 
   @IsEnum(ChannelName)
+  @Transform(normalizeChannel)
   channel: ChannelName;
 
   @IsNumber()

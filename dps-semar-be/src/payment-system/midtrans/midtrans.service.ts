@@ -73,7 +73,8 @@ export class MidtransService {
   }
 
   private getEnabledPayments(channelName: ChannelName): string[] {
-    if (channelName === ChannelName.UPI) return ['qris'];
+    if (channelName === ChannelName.UPI || channelName === ChannelName.QRIS)
+      return ['qris'];
     if (channelName === ChannelName.BANKING) return ['bank_transfer'];
     if (channelName === ChannelName.E_WALLET) return ['gopay'];
     return ['qris'];

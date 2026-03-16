@@ -139,13 +139,21 @@ export class UniqpayService {
     if (!endUser.netBankingDetails)
       throw new NotAcceptableException('EndUser NET_BANKING details missing!');
 
+    const ifscOrBankCode =
+      endUser.netBankingDetails.ifscCode || endUser.netBankingDetails.bankCode;
+
+    if (!ifscOrBankCode)
+      throw new NotAcceptableException(
+        'NET_BANKING details require ifscCode or bankCode.',
+      );
+
     const payoutPayload = {
       name: endUser.name,
       email: endUser.email,
       phone: endUser.mobile,
       address: 'INDIA',
       bankAccount: endUser.netBankingDetails.accountNumber,
-      ifsc: endUser.netBankingDetails.ifscCode,
+      ifsc: ifscOrBankCode,
       transferMode: 'IMPS',
       transferId: this.generateUniqueKey(),
       amount: amount,
@@ -194,13 +202,21 @@ export class UniqpayService {
       identity.userType,
     );
 
+    const ifscOrBankCode =
+      userBankingDetails.ifsc || userBankingDetails.bankName;
+
+    if (!ifscOrBankCode)
+      throw new NotAcceptableException(
+        'NET_BANKING details require ifsc or bank name/code.',
+      );
+
     const payoutPayload = {
       name: userBankingDetails.beneficiaryName,
       email: userBankingDetails?.email || identity.email,
       phone: userBankingDetails?.mobile || user?.phone,
       address: 'INDIA',
       bankAccount: userBankingDetails.accountNumber,
-      ifsc: userBankingDetails.ifsc,
+      ifsc: ifscOrBankCode,
       transferMode: 'IMPS',
       transferId: this.generateUniqueKey(),
       amount: amount,

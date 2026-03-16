@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -12,6 +12,18 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ChannelName, GatewayName } from 'src/utils/enum/enum';
+
+const normalizeChannel = ({ value }) => {
+  if (typeof value !== 'string') return value;
+
+  const upper = value.toUpperCase();
+  if (upper === 'NET_BANKING') return ChannelName.BANKING;
+  if (upper === 'E_WALLET') return ChannelName.E_WALLET;
+  if (upper === 'UPI') return ChannelName.UPI;
+  if (upper === 'QRIS') return ChannelName.QRIS;
+
+  return value;
+};
 
 class UserInfoDto {
   @IsString()
@@ -73,6 +85,7 @@ export class GetPaymentPageApiModeDto {
   webhookUrl?: string;
 
   @IsEnum(ChannelName)
+  @Transform(normalizeChannel)
   paymentMethod: ChannelName;
 }
 

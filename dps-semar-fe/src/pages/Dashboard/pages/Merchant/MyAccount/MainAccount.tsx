@@ -28,6 +28,15 @@ const MainAccount = () => {
 
   const isTablet = useMediaQuery("(min-width: 768px)");
 
+  const formatChannels = (channels: any[] | undefined) => {
+    if (!Array.isArray(channels) || !channels.length) return "None";
+
+    return channels
+      .map((channel) => channel?.channel || channel?.name || channel)
+      .filter(Boolean)
+      .join(", ");
+  };
+
   useEffect(() => {
     const fetchAgentData = async () => {
       try {
@@ -152,11 +161,7 @@ const MainAccount = () => {
               <Divider />
               <InfoRow
                 label={"Payin Channels"}
-                value={
-                  merchantData?.payinChannels
-                    ?.map((channel) => channel.channel || channel)
-                    .join(", ") || "None"
-                }
+                value={formatChannels(merchantData?.payinChannels)}
               />
               {/* <InfoRow
                 label={"Payin Service Rate"}
@@ -198,7 +203,7 @@ const MainAccount = () => {
             <Stack style={{ position: "relative", padding: "20px 20px 60px" }}>
               <InfoRow
                 label={"Payout Channels"}
-                value={merchantData?.payoutChannels?.join(", ")}
+                value={formatChannels(merchantData?.payoutChannels)}
               />
               {/* <InfoRow
                 label={"Payout Service Rate"}

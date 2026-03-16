@@ -261,6 +261,7 @@ export class PayinService {
       E_WALLET: 'eWallet',
       NET_BANKING: 'netBanking',
       UPI: 'upi',
+      QRIS: 'upi',
     };
 
     await this.updatePayinStatusToAssigned({

@@ -10,6 +10,8 @@ import {
 import { TransformTransactionDetails } from './payin-admin-response.dto';
 import { roundOffAmount } from 'src/utils/utils';
 
+const INDONESIAN_GATEWAYS = ['DOKU', 'MIDTRANS', 'XENDIT'];
+
 @Exclude()
 export class PayinMerchantResponseDto {
   @Expose()
@@ -30,6 +32,14 @@ export class PayinMerchantResponseDto {
   status: string;
 
   @Expose()
+  @Transform(
+    ({ value, obj }) =>
+      value === ChannelName.UPI &&
+      INDONESIAN_GATEWAYS.includes(obj?.gatewayName)
+        ? 'QRIS'
+        : value,
+    { toClassOnly: true },
+  )
   channel: ChannelName;
 
   @Expose()
@@ -89,6 +99,14 @@ export class PayinMerchantOrderResDto {
   status: OrderStatus;
 
   @Expose()
+  @Transform(
+    ({ value, obj }) =>
+      value === ChannelName.UPI &&
+      INDONESIAN_GATEWAYS.includes(obj?.gatewayName)
+        ? 'QRIS'
+        : value,
+    { toClassOnly: true },
+  )
   channel: ChannelName;
 
   @Expose()

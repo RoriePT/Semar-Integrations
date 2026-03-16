@@ -50,7 +50,8 @@ export class XenditService {
   }
 
   private getAllowedMethods(channelName: ChannelName): string[] {
-    if (channelName === ChannelName.UPI) return ['QRIS'];
+    if (channelName === ChannelName.UPI || channelName === ChannelName.QRIS)
+      return ['QRIS'];
     if (channelName === ChannelName.BANKING)
       return ['BCA', 'BNI', 'MANDIRI', 'PERMATA'];
     if (channelName === ChannelName.E_WALLET)
