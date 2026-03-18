@@ -6,16 +6,22 @@ import { FaGear } from "react-icons/fa6";
 import {
   GatewayName,
   getCashfreeGateway,
+  getDokuGateway,
+  getMidtransGateway,
   getPayuGateway,
   getPhonepeGateway,
   getRazorpayGateway,
   getUniqPayGateway,
+  getXenditGateway,
   PaymentType,
   updateCashfree,
+  updateDoku,
+  updateMidtrans,
   updatePayu,
   updatePhonepe,
   updateRazorpay,
   updateUniqPay,
+  updateXendit,
 } from "../../../../../api/gateway";
 import BenakpayIcon from "../../../../../assets/benakpay.png";
 import CashfreeIcon from "../../../../../assets/cashfree.png";
@@ -45,6 +51,12 @@ const Gateway = ({ gateway = GatewayName.PHONEPE }) => {
         response = await getPayuGateway();
       } else if (gateway === GatewayName.CASHFREE) {
         response = await getCashfreeGateway();
+      } else if (gateway === GatewayName.DOKU) {
+        response = await getDokuGateway();
+      } else if (gateway === GatewayName.MIDTRANS) {
+        response = await getMidtransGateway();
+      } else if (gateway === GatewayName.XENDIT) {
+        response = await getXenditGateway();
       }
 
       if (response) {
@@ -61,6 +73,15 @@ const Gateway = ({ gateway = GatewayName.PHONEPE }) => {
           setEnabledForIncoming(response.incoming);
           setEnabledForOutgoing(response.outgoing);
         } else if (gateway === GatewayName.CASHFREE) {
+          setEnabledForIncoming(response.incoming);
+          setEnabledForOutgoing(response.outgoing);
+        } else if (gateway === GatewayName.DOKU) {
+          setEnabledForIncoming(response.incoming);
+          setEnabledForOutgoing(response.outgoing);
+        } else if (gateway === GatewayName.MIDTRANS) {
+          setEnabledForIncoming(response.incoming);
+          setEnabledForOutgoing(response.outgoing);
+        } else if (gateway === GatewayName.XENDIT) {
           setEnabledForIncoming(response.incoming);
           setEnabledForOutgoing(response.outgoing);
         }
@@ -105,6 +126,24 @@ const Gateway = ({ gateway = GatewayName.PHONEPE }) => {
         ? setEnabledForIncoming(value)
         : setEnabledForOutgoing(value);
     }
+    if (gateway === GatewayName.DOKU) {
+      await updateDoku(type, value);
+      type === PaymentType.INCOMING
+        ? setEnabledForIncoming(value)
+        : setEnabledForOutgoing(value);
+    }
+    if (gateway === GatewayName.MIDTRANS) {
+      await updateMidtrans(type, value);
+      type === PaymentType.INCOMING
+        ? setEnabledForIncoming(value)
+        : setEnabledForOutgoing(value);
+    }
+    if (gateway === GatewayName.XENDIT) {
+      await updateXendit(type, value);
+      type === PaymentType.INCOMING
+        ? setEnabledForIncoming(value)
+        : setEnabledForOutgoing(value);
+    }
   };
 
   const getGatewayLogo = () => {
@@ -113,11 +152,16 @@ const Gateway = ({ gateway = GatewayName.PHONEPE }) => {
     if (gateway === GatewayName.UNIQPAY) return BenakpayIcon;
     if (gateway === GatewayName.PAYU) return PayuIcon;
     if (gateway === GatewayName.CASHFREE) return CashfreeIcon;
+    return undefined;
   };
 
   return (
     <Paper px={"xl"} py={"md"}>
-      <img style={{ width: "160px" }} src={getGatewayLogo()} alt="" />
+      {getGatewayLogo() ? (
+        <img style={{ width: "160px" }} src={getGatewayLogo()} alt="" />
+      ) : (
+        <h2>{gateway}</h2>
+      )}
       <Divider my={"md"} />
       <Stack gap={"xl"}>
         <Switch

@@ -5,7 +5,16 @@ const axiosInstance = AxiosInstance();
 
 export const getAllGateways = async (): Promise<any> => {
   return {
-    data: ["RAZORPAY", "PHONEPE"],
+    data: [
+      "RAZORPAY",
+      "PHONEPE",
+      "UNIQPAY",
+      "PAYU",
+      "CASHFREE",
+      "DOKU",
+      "MIDTRANS",
+      "XENDIT",
+    ],
   };
 };
 
@@ -68,6 +77,48 @@ export const getPayuGateway = async (): Promise<any> => {
 export const getCashfreeGateway = async (): Promise<any> => {
   try {
     const response = await axiosInstance.get(`/gateway/cashfree`, {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    handleAPICatchBlock({ error });
+    console.log(error);
+  }
+};
+
+export const getDokuGateway = async (): Promise<any> => {
+  try {
+    const response = await axiosInstance.get(`/gateway/doku`, {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    handleAPICatchBlock({ error });
+    console.log(error);
+  }
+};
+
+export const getMidtransGateway = async (): Promise<any> => {
+  try {
+    const response = await axiosInstance.get(`/gateway/midtrans`, {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    handleAPICatchBlock({ error });
+    console.log(error);
+  }
+};
+
+export const getXenditGateway = async (): Promise<any> => {
+  try {
+    const response = await axiosInstance.get(`/gateway/xendit`, {
       headers: {
         Authorization: `Bearer ${getAuthToken()}`,
       },
@@ -267,8 +318,116 @@ export const updateCashfree = async (
   }
 };
 
+export const updateDoku = async (
+  type?: PaymentType,
+  value?: boolean,
+  additionalData?: {
+    merchant_id?: string;
+    client_id?: string;
+    secret_key?: string;
+    sandbox_merchant_id?: string;
+    sandbox_client_id?: string;
+    sandbox_secret_key?: string;
+  }
+): Promise<any> => {
+  let payload = {};
+
+  if (type === null) {
+    payload = additionalData;
+  } else {
+    payload = {
+      [type.toLowerCase()]: value,
+      ...additionalData,
+    };
+  }
+  try {
+    const response = await axiosInstance.post("/gateway/doku/update", payload, {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    handleAPICatchBlock({ error });
+    console.log(error);
+  }
+};
+
+export const updateMidtrans = async (
+  type?: PaymentType,
+  value?: boolean,
+  additionalData?: {
+    server_key?: string;
+    client_key?: string;
+    sandbox_server_key?: string;
+    sandbox_client_key?: string;
+  }
+): Promise<any> => {
+  let payload = {};
+
+  if (type === null) {
+    payload = additionalData;
+  } else {
+    payload = {
+      [type.toLowerCase()]: value,
+      ...additionalData,
+    };
+  }
+  try {
+    const response = await axiosInstance.post(
+      "/gateway/midtrans/update",
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    handleAPICatchBlock({ error });
+    console.log(error);
+  }
+};
+
+export const updateXendit = async (
+  type?: PaymentType,
+  value?: boolean,
+  additionalData?: {
+    secret_key?: string;
+    sandbox_secret_key?: string;
+  }
+): Promise<any> => {
+  let payload = {};
+
+  if (type === null) {
+    payload = additionalData;
+  } else {
+    payload = {
+      [type.toLowerCase()]: value,
+      ...additionalData,
+    };
+  }
+  try {
+    const response = await axiosInstance.post(
+      "/gateway/xendit/update",
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    handleAPICatchBlock({ error });
+    console.log(error);
+  }
+};
+
 export enum ChannelName {
   UPI = "UPI",
+  QRIS = "QRIS",
   BANKING = "NET_BANKING",
   E_WALLET = "E_WALLET",
 }
@@ -279,6 +438,9 @@ export enum GatewayName {
   UNIQPAY = "UNIQPAY",
   PAYU = "PAYU",
   CASHFREE = "CASHFREE",
+  DOKU = "DOKU",
+  MIDTRANS = "MIDTRANS",
+  XENDIT = "XENDIT",
 }
 
 export enum PaymentType {

@@ -30,7 +30,17 @@ export const DefaultProvider = ({ children }) => {
   };
 
   const fetchGateways = async () => {
-    setGateways(["RAZORPAY", "PHONEPE", "UNIQPAY", "CASHFREE", "PAYU", "UPI_VENDOR"]);
+    setGateways([
+      "RAZORPAY",
+      "PHONEPE",
+      "UNIQPAY",
+      "CASHFREE",
+      "PAYU",
+      "DOKU",
+      "MIDTRANS",
+      "XENDIT",
+      "UPI_VENDOR",
+    ]);
   };
 
   const fetchSystemDefaults = async () => {

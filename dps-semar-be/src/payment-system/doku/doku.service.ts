@@ -1064,10 +1064,12 @@ export class DokuService {
 
       const responseCode = String(transfer?.data?.responseCode || '');
       const paymentStatus = responseCode.startsWith('200') ? 'PENDING' : 'FAILED';
+      const gatewayTransactionId =
+        transfer?.data?.additionalInfo?.sessionId || sessionId || orderId;
 
       return {
         gatewayName: GatewayName.DOKU,
-        transactionId: orderId,
+        transactionId: gatewayTransactionId,
         transactionReceipt: 'DOKU',
         paymentStatus,
         transactionDetails: {
@@ -1186,10 +1188,12 @@ export class DokuService {
 
       const responseCode = String(transfer?.data?.responseCode || '');
       const paymentStatus = responseCode.startsWith('200') ? 'PENDING' : 'FAILED';
+      const gatewayTransactionId =
+        transfer?.data?.additionalInfo?.sessionId || sessionId || orderId;
 
       return {
         gatewayName: GatewayName.DOKU,
-        transactionId: orderId,
+        transactionId: gatewayTransactionId,
         transactionReceipt: 'DOKU',
         paymentStatus,
         transactionDetails: {

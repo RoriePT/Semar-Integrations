@@ -10,6 +10,12 @@ export const getChannelData = (): CreateChannelConfigDto[] => {
       outgoing: true,
     },
     {
+      name: ChannelName.QRIS,
+      tag_name: 'qris',
+      incoming: true,
+      outgoing: false,
+    },
+    {
       name: ChannelName.E_WALLET,
       tag_name: 'e_wallet',
       incoming: true,

@@ -2,13 +2,13 @@ import { NumberInput, Stack, Switch } from "@mantine/core";
 import React from "react";
 
 interface OutgoingConfigProps {
-  outgoingData: {
+  outgoingData?: {
     id: number;
     enabled: boolean;
     minAmount: number;
     maxAmount: number;
     upstreamFee: number;
-  };
+  } | null;
   setOutgoingData: any;
   errors: any;
 }
@@ -18,6 +18,10 @@ const OutgoingConfig: React.FC<OutgoingConfigProps> = ({
   setOutgoingData,
   errors,
 }) => {
+  if (!outgoingData) {
+    return <div>No configuration found for this channel.</div>;
+  }
+
   const handleChange = (field, value) => {
     setOutgoingData((prev) => {
       return prev.map((item) => {

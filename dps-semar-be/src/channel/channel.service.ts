@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -23,19 +22,22 @@ export class ChannelService {
   ) {}
 
   async createChannelConfig() {
-    const isChannelConfigExists = await this.configChannelRepository.find();
+    const existingConfigs = await this.configChannelRepository.find();
+    const existingNames = new Set(existingConfigs.map((item) => item.name));
+    const channelConfigData = getChannelData();
+    const missingConfigs = channelConfigData.filter(
+      (dto) => !existingNames.has(dto.name),
+    );
 
-    if (isChannelConfigExists?.length > 0)
-      throw new ConflictException('Channels are already created.');
+    if (missingConfigs.length === 0) {
+      return HttpStatus.OK;
+    }
 
-    const chanelConfigData = getChannelData();
-
-    const channelConfigs = chanelConfigData.map((dto) => {
-      const config = this.configChannelRepository.create(dto);
-      return config;
-    });
-
+    const channelConfigs = missingConfigs.map((dto) =>
+      this.configChannelRepository.create(dto),
+    );
     await this.configChannelRepository.save(channelConfigs);
+    return HttpStatus.CREATED;
   }
 
   async updateChannelConfig(updateChannelConfigDto: UpdateChannelConfigDto) {
@@ -104,6 +106,7 @@ export class ChannelService {
 
     const mapChannel = {
       UPI: 'upi',
+      QRIS: 'upi',
       NET_BANKING: 'netBanking',
       E_WALLET: 'eWallet',
     };
@@ -112,8 +115,10 @@ export class ChannelService {
       return channels.map((channel) => ({
         channel: channel.name,
         enabled: merchantId
-          ? merchant.identity[mapChannel[channel.name]].length >= 1 &&
-            channel.outgoing
+          ? mapChannel[channel.name]
+            ? merchant.identity[mapChannel[channel.name]]?.length >= 1 &&
+              channel.outgoing
+            : channel.outgoing
           : channel.outgoing,
       }));
     }

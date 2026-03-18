@@ -4,10 +4,13 @@ import React, { useState } from "react";
 import {
   GatewayName,
   updateCashfree,
+  updateDoku,
+  updateMidtrans,
   updatePayu,
   updatePhonepe,
   updateRazorpay,
   updateUniqPay,
+  updateXendit,
 } from "../../../../../../api/gateway";
 import BenakpayIcon from "../../../../../../assets/benakpay.png";
 import CashfreeIcon from "../../../../../../assets/cashfree.png";
@@ -17,10 +20,13 @@ import RazorpayIcon from "../../../../../../assets/razorpay.png";
 import DrawerLayout from "../../../../../../components/DrawerLayout";
 import TabsLayout from "../../../../../../components/TabsLayout";
 import CashfreeKeys from "./Components/CashfreeKeys";
+import DokuKeys from "./Components/DokuKeys";
+import MidtransKeys from "./Components/MidtransKeys";
 import PayuKeys from "./Components/PayuKeys";
 import PhonepeKeys from "./Components/PhonepeKeys";
 import RazorPayKeys from "./Components/RazorPayKeys";
 import UniqPayKeys from "./Components/UniqPayKeys";
+import XenditKeys from "./Components/XenditKeys";
 
 interface KetformProps {
   opened: boolean;
@@ -32,6 +38,7 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
   const [liveFields, setLiveFields] = useState({
     key_id: "",
     key_secret: "",
+    secret_key: "",
     merchant_id: "",
     salt_key: "",
     salt_index: "",
@@ -41,24 +48,31 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     client_secret: "",
     payouts_client_id: "",
     payouts_client_secret: "",
+    server_key: "",
+    client_key: "",
   });
 
   const [sandboxFields, setSandboxFields] = useState({
     sandbox_key_id: "",
     sandbox_key_secret: "",
+    sandbox_secret_key: "",
     sandbox_merchant_id: "",
     sandbox_salt_key: "",
     sandbox_salt_index: "",
     sandbox_account_number: "",
     sandbox_client_id: "",
     sandbox_client_secret: "",
+    sandbox_server_key: "",
+    sandbox_client_key: "",
   });
 
   const [errors, setErrors] = useState({
     key_id: "",
     key_secret: "",
+    secret_key: "",
     sandbox_key_id: "",
     sandbox_key_secret: "",
+    sandbox_secret_key: "",
     merchant_id: "",
     salt_key: "",
     salt_index: "",
@@ -74,6 +88,10 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     sandbox_client_secret: "",
     payouts_client_id: "",
     payouts_client_secret: "",
+    server_key: "",
+    client_key: "",
+    sandbox_server_key: "",
+    sandbox_client_key: "",
   });
 
   const [currentTab, setCurrentTab] = useState("live");
@@ -82,8 +100,10 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     const newErrors = {
       key_id: "",
       key_secret: "",
+      secret_key: "",
       sandbox_key_id: "",
       sandbox_key_secret: "",
+      sandbox_secret_key: "",
       merchant_id: "",
       salt_key: "",
       salt_index: "",
@@ -99,6 +119,10 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
       sandbox_client_secret: "",
       payouts_client_id: "",
       payouts_client_secret: "",
+      server_key: "",
+      client_key: "",
+      sandbox_server_key: "",
+      sandbox_client_key: "",
     };
 
     let isValid = true;
@@ -175,6 +199,33 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
             "Cashfree payouts client secret is required.";
           isValid = false;
         }
+      } else if (gateway === GatewayName.DOKU) {
+        if (!liveFields.merchant_id) {
+          newErrors.merchant_id = "DOKU merchant ID is required.";
+          isValid = false;
+        }
+        if (!liveFields.client_id) {
+          newErrors.client_id = "DOKU client ID is required.";
+          isValid = false;
+        }
+        if (!liveFields.secret_key) {
+          newErrors.secret_key = "DOKU secret key is required.";
+          isValid = false;
+        }
+      } else if (gateway === GatewayName.MIDTRANS) {
+        if (!liveFields.server_key) {
+          newErrors.server_key = "Midtrans server key is required.";
+          isValid = false;
+        }
+        if (!liveFields.client_key) {
+          newErrors.client_key = "Midtrans client key is required.";
+          isValid = false;
+        }
+      } else if (gateway === GatewayName.XENDIT) {
+        if (!liveFields.secret_key) {
+          newErrors.secret_key = "Xendit secret key is required.";
+          isValid = false;
+        }
       }
     } else if (currentTab === "sandbox") {
       if (gateway === GatewayName.RAZORPAY) {
@@ -226,6 +277,33 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
           newErrors.sandbox_client_secret = "Sandbox key secret is required.";
           isValid = false;
         }
+      } else if (gateway === GatewayName.DOKU) {
+        if (!sandboxFields.sandbox_merchant_id) {
+          newErrors.sandbox_merchant_id = "Sandbox merchant ID is required.";
+          isValid = false;
+        }
+        if (!sandboxFields.sandbox_client_id) {
+          newErrors.sandbox_client_id = "Sandbox client ID is required.";
+          isValid = false;
+        }
+        if (!sandboxFields.sandbox_secret_key) {
+          newErrors.sandbox_secret_key = "Sandbox secret key is required.";
+          isValid = false;
+        }
+      } else if (gateway === GatewayName.MIDTRANS) {
+        if (!sandboxFields.sandbox_server_key) {
+          newErrors.sandbox_server_key = "Sandbox server key is required.";
+          isValid = false;
+        }
+        if (!sandboxFields.sandbox_client_key) {
+          newErrors.sandbox_client_key = "Sandbox client key is required.";
+          isValid = false;
+        }
+      } else if (gateway === GatewayName.XENDIT) {
+        if (!sandboxFields.sandbox_secret_key) {
+          newErrors.sandbox_secret_key = "Sandbox secret key is required.";
+          isValid = false;
+        }
       }
     }
 
@@ -270,6 +348,21 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
               payouts_client_id: liveFields.payouts_client_id,
               payouts_client_secret: liveFields.payouts_client_secret,
             });
+          } else if (gateway === GatewayName.DOKU) {
+            response = await updateDoku(null, null, {
+              merchant_id: liveFields.merchant_id,
+              client_id: liveFields.client_id,
+              secret_key: liveFields.secret_key,
+            });
+          } else if (gateway === GatewayName.MIDTRANS) {
+            response = await updateMidtrans(null, null, {
+              server_key: liveFields.server_key,
+              client_key: liveFields.client_key,
+            });
+          } else if (gateway === GatewayName.XENDIT) {
+            response = await updateXendit(null, null, {
+              secret_key: liveFields.secret_key,
+            });
           }
         } else {
           if (gateway === GatewayName.RAZORPAY) {
@@ -295,6 +388,21 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
               sandbox_client_id: sandboxFields.sandbox_client_id,
               sandbox_client_secret: sandboxFields.sandbox_client_secret,
             });
+          } else if (gateway === GatewayName.DOKU) {
+            response = await updateDoku(null, null, {
+              sandbox_merchant_id: sandboxFields.sandbox_merchant_id,
+              sandbox_client_id: sandboxFields.sandbox_client_id,
+              sandbox_secret_key: sandboxFields.sandbox_secret_key,
+            });
+          } else if (gateway === GatewayName.MIDTRANS) {
+            response = await updateMidtrans(null, null, {
+              sandbox_server_key: sandboxFields.sandbox_server_key,
+              sandbox_client_key: sandboxFields.sandbox_client_key,
+            });
+          } else if (gateway === GatewayName.XENDIT) {
+            response = await updateXendit(null, null, {
+              sandbox_secret_key: sandboxFields.sandbox_secret_key,
+            });
           }
         }
 
@@ -311,6 +419,7 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
             setLiveFields({
               key_id: "",
               key_secret: "",
+              secret_key: "",
               merchant_id: "",
               salt_key: "",
               salt_index: "",
@@ -320,17 +429,22 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
               client_secret: "",
               payouts_client_id: "",
               payouts_client_secret: "",
+              server_key: "",
+              client_key: "",
             });
           } else {
             setSandboxFields({
               sandbox_key_id: "",
               sandbox_key_secret: "",
+              sandbox_secret_key: "",
               sandbox_merchant_id: "",
               sandbox_salt_key: "",
               sandbox_salt_index: "",
               sandbox_account_number: "",
               sandbox_client_id: "",
               sandbox_client_secret: "",
+              sandbox_server_key: "",
+              sandbox_client_key: "",
             });
           }
         }
@@ -396,6 +510,36 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
           currentTab={currentTab}
         />
       );
+    } else if (gateway === GatewayName.DOKU) {
+      return (
+        <DokuKeys
+          fields={currentTab === "live" ? liveFields : sandboxFields}
+          errors={errors}
+          setErrors={setErrors}
+          setFields={currentTab === "live" ? setLiveFields : setSandboxFields}
+          currentTab={currentTab}
+        />
+      );
+    } else if (gateway === GatewayName.MIDTRANS) {
+      return (
+        <MidtransKeys
+          fields={currentTab === "live" ? liveFields : sandboxFields}
+          errors={errors}
+          setErrors={setErrors}
+          setFields={currentTab === "live" ? setLiveFields : setSandboxFields}
+          currentTab={currentTab}
+        />
+      );
+    } else if (gateway === GatewayName.XENDIT) {
+      return (
+        <XenditKeys
+          fields={currentTab === "live" ? liveFields : sandboxFields}
+          errors={errors}
+          setErrors={setErrors}
+          setFields={currentTab === "live" ? setLiveFields : setSandboxFields}
+          currentTab={currentTab}
+        />
+      );
     }
   };
 
@@ -405,12 +549,17 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     if (gateway === GatewayName.UNIQPAY) return BenakpayIcon;
     if (gateway === GatewayName.PAYU) return PayuIcon;
     if (gateway === GatewayName.CASHFREE) return CashfreeIcon;
+    return undefined;
   };
 
   const Header = (
     <Flex justify={"space-between"} align={"center"} mr={"md"}>
       <Title order={4}>Merchant keys</Title>
-      <img style={{ width: "100px" }} src={getGatewayLogo()} alt="" />
+      {getGatewayLogo() ? (
+        <img style={{ width: "100px" }} src={getGatewayLogo()} alt="" />
+      ) : (
+        <strong>{gateway}</strong>
+      )}
     </Flex>
   );
 

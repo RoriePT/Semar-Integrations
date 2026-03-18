@@ -1106,6 +1106,109 @@ export class PaymentSystemUtilService {
     }
   }
 
+  async processPaymentMethodLive(
+    merchant: Merchant,
+    createdPayin: Payin,
+    paymentMethod:
+      | 'member'
+      | 'phonepe'
+      | 'razorpay'
+      | 'payu'
+      | 'cashfree'
+      | 'doku'
+      | 'midtrans'
+      | 'xendit'
+      | 'upi-vendor',
+    userId: string,
+    environment: 'live' | 'sandbox',
+  ) {
+    let gatewayName: GatewayName = null;
+    if (paymentMethod === 'member') gatewayName = GatewayName.MEMBER;
+    if (paymentMethod === 'phonepe') gatewayName = GatewayName.PHONEPE;
+    if (paymentMethod === 'razorpay') gatewayName = GatewayName.RAZORPAY;
+    if (paymentMethod === 'payu') gatewayName = GatewayName.PAYU;
+    if (paymentMethod === 'cashfree') gatewayName = GatewayName.CASHFREE;
+    if (paymentMethod === 'doku') gatewayName = GatewayName.DOKU;
+    if (paymentMethod === 'midtrans') gatewayName = GatewayName.MIDTRANS;
+    if (paymentMethod === 'xendit') gatewayName = GatewayName.XENDIT;
+    if (paymentMethod === 'upi-vendor') gatewayName = GatewayName.UPI_VENDOR;
+
+    if (!gatewayName)
+      throw new NotFoundException('Requested payment gateway is invalid.');
+
+    if (gatewayName === GatewayName.MEMBER) {
+      throw new NotFoundException(
+        'Explicit MEMBER selection is not supported for API mode.',
+      );
+    }
+
+    if (gatewayName === GatewayName.UPI_VENDOR) {
+      return await this.assignUpiVendorGateway(createdPayin, userId, environment);
+    }
+
+    const liveChannel = this.resolveChannelForGateway(
+      createdPayin.channel,
+      gatewayName,
+    );
+
+    if (!liveChannel) {
+      throw new NotFoundException(
+        `Requested channel ${createdPayin.channel} is not supported for ${gatewayName}.`,
+      );
+    }
+
+    const channelEnabled = await this.channelSettingsRepository.findOne({
+      where: {
+        gatewayName,
+        enabled: true,
+        channelName: liveChannel,
+        type: PaymentType.INCOMING,
+        minAmount: LessThanOrEqual(createdPayin.amount),
+        maxAmount: MoreThanOrEqual(createdPayin.amount),
+      },
+    });
+
+    if (!channelEnabled) {
+      throw new NotFoundException(
+        `No enabled channel setting found for ${gatewayName} - ${liveChannel}.`,
+      );
+    }
+
+    if (liveChannel !== createdPayin.channel) {
+      await this.payinRepository.update(createdPayin.id, {
+        channel: liveChannel,
+      });
+      createdPayin.channel = liveChannel;
+    }
+
+    await this.payinService.updatePayinStatusToAssigned({
+      id: createdPayin.systemOrderId,
+      paymentMode: PaymentMadeOn.GATEWAY,
+      memberId: null,
+      gatewayServiceRate: channelEnabled.upstreamFee,
+      memberPaymentDetails: null,
+      gatewayName,
+      userId,
+    });
+
+    const res: any = await this.getPayPage({
+      orderId: createdPayin.systemOrderId,
+      userId: userId,
+      amount: createdPayin.amount.toString(),
+      gateway: gatewayName,
+      channelName: liveChannel,
+      integrationId: merchant.integrationId,
+      environment,
+    });
+
+    await this.payinRepository.update(createdPayin.id, {
+      trackingId: res?.trackingId,
+      gatewayPaymentLink: res?.url,
+    });
+
+    return res?.url;
+  }
+
   async getMemberWithIntervalCalls({ channelName, amount }) {
     let selectedMember;
     const startTime = Date.now();

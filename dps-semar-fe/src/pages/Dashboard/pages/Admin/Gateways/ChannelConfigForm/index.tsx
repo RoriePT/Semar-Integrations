@@ -61,7 +61,9 @@ const ChannelConfigForm: React.FC<ChannelConfigFormProps> = ({
   const [currentTab, setCurrentTab] = useState<PaymentType>(
     PaymentType.INCOMING
   );
-  const [currentSubTab, setCurrentSubTab] = useState(ChannelName.UPI);
+  const [currentSubTab, setCurrentSubTab] = useState<ChannelName>(
+    ChannelName.UPI
+  );
 
   const [incomingData, setIncomingData] = useState<IncomingData>({
     enabled: false,
@@ -106,13 +108,30 @@ const ChannelConfigForm: React.FC<ChannelConfigFormProps> = ({
     fetchData();
   }, [opened]);
 
+  useEffect(() => {
+    if (
+      gateway === GatewayName.DOKU ||
+      gateway === GatewayName.MIDTRANS ||
+      gateway === GatewayName.XENDIT
+    ) {
+      setCurrentSubTab(ChannelName.QRIS);
+      return;
+    }
+    setCurrentSubTab(ChannelName.UPI);
+  }, [gateway, opened]);
+
+  const getConfig = (paymentType: PaymentType, channelName: ChannelName) =>
+    filterData(gateway, paymentType, channelName)[0] || null;
+
   const validateIncoming = () => {
     const errors: { [key: string]: string } = {};
-    const { minAmount, maxAmount, upstreamFee } = filterData(
-      gateway,
-      PaymentType.INCOMING,
-      currentSubTab
-    )[0];
+    const data = getConfig(PaymentType.INCOMING, currentSubTab);
+    if (!data) {
+      errors.channel = "Channel configuration not found";
+      setIncomingErrors(errors);
+      return false;
+    }
+    const { minAmount, maxAmount, upstreamFee } = data;
     let hasErrors = false;
 
     if (minAmount <= 0) {
@@ -134,11 +153,13 @@ const ChannelConfigForm: React.FC<ChannelConfigFormProps> = ({
 
   const validateOutgoing = () => {
     const errors: { [key: string]: string } = {};
-    const { minAmount, maxAmount, upstreamFee } = filterData(
-      gateway,
-      PaymentType.OUTGOING,
-      currentSubTab
-    )[0];
+    const data = getConfig(PaymentType.OUTGOING, currentSubTab);
+    if (!data) {
+      errors.channel = "Channel configuration not found";
+      setOutgoingErrors(errors);
+      return false;
+    }
+    const { minAmount, maxAmount, upstreamFee } = data;
     let hasErrors = false;
 
     if (minAmount <= 0) {
@@ -194,12 +215,17 @@ const ChannelConfigForm: React.FC<ChannelConfigFormProps> = ({
     if (gateway === GatewayName.UNIQPAY) return BenakpayIcon;
     if (gateway === GatewayName.PAYU) return PayuIcon;
     if (gateway === GatewayName.CASHFREE) return CashfreeIcon;
+    return undefined;
   };
 
   const Header = (
     <Flex justify={"space-between"} align={"center"} mr={"md"}>
       <Title order={4}>Channel Config</Title>
-      <img style={{ width: "100px" }} src={getGatewayLogo()} alt="" />
+      {getGatewayLogo() ? (
+        <img style={{ width: "100px" }} src={getGatewayLogo()} alt="" />
+      ) : (
+        <strong>{gateway}</strong>
+      )}
     </Flex>
   );
 
@@ -236,37 +262,32 @@ const ChannelConfigForm: React.FC<ChannelConfigFormProps> = ({
           isControlled={true}
           onChange={setCurrentSubTab}
           tabs={[
+            { label: "QRIS", value: ChannelName.QRIS },
             { label: "UPI", value: ChannelName.UPI },
             { label: "Netbanking", value: ChannelName.BANKING },
             { label: "E-Wallet", value: ChannelName.E_WALLET },
           ]}
           tabPanels={[
             <IncomingConfig
-              incomingData={
-                filterData(gateway, PaymentType.INCOMING, ChannelName.UPI)[0]
-              }
+              incomingData={getConfig(PaymentType.INCOMING, ChannelName.QRIS)}
               setIncomingData={setAllChannelSettings}
               errors={incomingErrors}
             />,
             <IncomingConfig
-              incomingData={
-                filterData(
-                  gateway,
-                  PaymentType.INCOMING,
-                  ChannelName.BANKING
-                )[0]
-              }
+              incomingData={getConfig(PaymentType.INCOMING, ChannelName.UPI)}
               setIncomingData={setAllChannelSettings}
               errors={incomingErrors}
             />,
             <IncomingConfig
-              incomingData={
-                filterData(
-                  gateway,
-                  PaymentType.INCOMING,
-                  ChannelName.E_WALLET
-                )[0]
-              }
+              incomingData={getConfig(PaymentType.INCOMING, ChannelName.BANKING)}
+              setIncomingData={setAllChannelSettings}
+              errors={incomingErrors}
+            />,
+            <IncomingConfig
+              incomingData={getConfig(
+                PaymentType.INCOMING,
+                ChannelName.E_WALLET
+              )}
               setIncomingData={setAllChannelSettings}
               errors={incomingErrors}
             />,
@@ -284,37 +305,32 @@ const ChannelConfigForm: React.FC<ChannelConfigFormProps> = ({
           isControlled={true}
           onChange={setCurrentSubTab}
           tabs={[
+            { label: "QRIS", value: ChannelName.QRIS },
             { label: "UPI", value: ChannelName.UPI },
             { label: "Netbanking", value: ChannelName.BANKING },
             { label: "E-Wallet", value: ChannelName.E_WALLET },
           ]}
           tabPanels={[
             <OutgoingConfig
-              outgoingData={
-                filterData(gateway, PaymentType.OUTGOING, ChannelName.UPI)[0]
-              }
+              outgoingData={getConfig(PaymentType.OUTGOING, ChannelName.QRIS)}
               setOutgoingData={setAllChannelSettings}
               errors={outgoingErrors}
             />,
             <OutgoingConfig
-              outgoingData={
-                filterData(
-                  gateway,
-                  PaymentType.OUTGOING,
-                  ChannelName.BANKING
-                )[0]
-              }
+              outgoingData={getConfig(PaymentType.OUTGOING, ChannelName.UPI)}
               setOutgoingData={setAllChannelSettings}
               errors={outgoingErrors}
             />,
             <OutgoingConfig
-              outgoingData={
-                filterData(
-                  gateway,
-                  PaymentType.OUTGOING,
-                  ChannelName.E_WALLET
-                )[0]
-              }
+              outgoingData={getConfig(PaymentType.OUTGOING, ChannelName.BANKING)}
+              setOutgoingData={setAllChannelSettings}
+              errors={outgoingErrors}
+            />,
+            <OutgoingConfig
+              outgoingData={getConfig(
+                PaymentType.OUTGOING,
+                ChannelName.E_WALLET
+              )}
               setOutgoingData={setAllChannelSettings}
               errors={outgoingErrors}
             />,

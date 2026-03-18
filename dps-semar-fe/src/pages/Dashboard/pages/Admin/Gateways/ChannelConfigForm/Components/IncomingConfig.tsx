@@ -3,13 +3,13 @@ import React from "react";
 import { PaymentType } from "../../../../../../../api/gateway";
 
 interface IncomingConfigProps {
-  incomingData: {
+  incomingData?: {
     id: number;
     enabled: boolean;
     minAmount: number;
     maxAmount: number;
     upstreamFee: number;
-  };
+  } | null;
   setIncomingData: any;
   errors: any;
 }
@@ -19,6 +19,10 @@ const IncomingConfig: React.FC<IncomingConfigProps> = ({
   setIncomingData,
   errors,
 }) => {
+  if (!incomingData) {
+    return <div>No configuration found for this channel.</div>;
+  }
+
   const handleChange = (field, value) => {
     setIncomingData((prev) => {
       return prev.map((item) => {

@@ -144,7 +144,7 @@ export class GatewayService {
 
   async getRazorpay() {
     const razorpayData = await this.razorpayRepository.find();
-    if (!razorpayData) throw new NotFoundException();
+    if (!razorpayData?.length) throw new NotFoundException();
     const result = plainToInstance(GatewayResponseDto, razorpayData[0]);
     return result;
   }
@@ -153,7 +153,7 @@ export class GatewayService {
     const secretTextKeys = this.secretTextKeysRazorpay;
 
     const existingData = await this.razorpayRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updateRazorpayDto);
 
@@ -186,7 +186,7 @@ export class GatewayService {
 
   async getPhonepe() {
     const phonepeData = await this.phonepeRepository.find();
-    if (!phonepeData) throw new NotFoundException();
+    if (!phonepeData?.length) throw new NotFoundException();
     const result = plainToInstance(GatewayResponseDto, phonepeData[0]);
     return result;
   }
@@ -195,7 +195,7 @@ export class GatewayService {
     const secretKeysPhonepe = this.secretTextKeysPhonepe;
 
     const existingData = await this.phonepeRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updatePhonepeDto);
 
@@ -229,7 +229,7 @@ export class GatewayService {
 
   async getUniqpay() {
     const uniqpayData = await this.uniqpayRepository.find();
-    if (!uniqpayData) throw new NotFoundException();
+    if (!uniqpayData?.length) throw new NotFoundException();
     const result = plainToInstance(GatewayResponseDto, uniqpayData[0]);
     return result;
   }
@@ -238,7 +238,7 @@ export class GatewayService {
     const secretTextKeys = this.secretTextKeysUniqpay;
 
     const existingData = await this.uniqpayRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updateUniqpayDto);
 
@@ -269,7 +269,7 @@ export class GatewayService {
 
   async getPayu() {
     const payuData = await this.payuRepository.find();
-    if (!payuData) throw new NotFoundException();
+    if (!payuData?.length) throw new NotFoundException();
 
     const result = plainToInstance(GatewayResponseDto, payuData[0]);
     return result;
@@ -279,7 +279,7 @@ export class GatewayService {
     const secretTextKeys = this.secretTextKeysPayu;
 
     const existingData = await this.payuRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updatePayuDto);
 
@@ -314,7 +314,7 @@ export class GatewayService {
 
   async getCashfree() {
     const cashfreeData = await this.cashfreeRepository.find();
-    if (!cashfreeData) throw new NotFoundException();
+    if (!cashfreeData?.length) throw new NotFoundException();
 
     const result = plainToInstance(GatewayResponseDto, cashfreeData[0]);
     return result;
@@ -324,7 +324,7 @@ export class GatewayService {
     const secretTextKeys = this.secretTextKeysCashfree;
 
     const existingData = await this.cashfreeRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updateCashfreeDto);
 
@@ -351,13 +351,13 @@ export class GatewayService {
 
   async getDoku() {
     const dokuData = await this.dokuRepository.find();
-    if (!dokuData) throw new NotFoundException();
+    if (!dokuData?.length) throw new NotFoundException();
     return plainToInstance(GatewayResponseDto, dokuData[0]);
   }
 
   async updateDoku(updateDokuDto: UpdateDokuDto) {
     const existingData = await this.dokuRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updateDokuDto);
     this.secretTextKeysDoku.forEach((key) => {
@@ -385,13 +385,13 @@ export class GatewayService {
 
   async getMidtrans() {
     const midtransData = await this.midtransRepository.find();
-    if (!midtransData) throw new NotFoundException();
+    if (!midtransData?.length) throw new NotFoundException();
     return plainToInstance(GatewayResponseDto, midtransData[0]);
   }
 
   async updateMidtrans(updateMidtransDto: UpdateMidtransDto) {
     const existingData = await this.midtransRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updateMidtransDto);
     this.secretTextKeysMidtrans.forEach((key) => {
@@ -417,13 +417,13 @@ export class GatewayService {
 
   async getXendit() {
     const xenditData = await this.xenditRepository.find();
-    if (!xenditData) throw new NotFoundException();
+    if (!xenditData?.length) throw new NotFoundException();
     return plainToInstance(GatewayResponseDto, xenditData[0]);
   }
 
   async updateXendit(updateXenditDto: UpdateXenditDto) {
     const existingData = await this.xenditRepository.find();
-    if (!existingData) throw new NotFoundException();
+    if (!existingData?.length) throw new NotFoundException();
 
     const updatedData = Object.assign({}, existingData[0], updateXenditDto);
     this.secretTextKeysXendit.forEach((key) => {

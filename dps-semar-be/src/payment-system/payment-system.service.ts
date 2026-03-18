@@ -132,12 +132,20 @@ export class PaymentSystemService {
       }
 
       if (payin.status === OrderStatus.INITIATED) {
-        const url = await this.utilService.assignPaymentMethodForPayinOrder(
-          merchant,
-          payin,
-          payin.user.userId,
-          environment,
-        );
+        const url = paymentGateway
+          ? await this.utilService.processPaymentMethodLive(
+              merchant,
+              payin,
+              paymentGateway,
+              payin.user.userId,
+              environment,
+            )
+          : await this.utilService.assignPaymentMethodForPayinOrder(
+              merchant,
+              payin,
+              payin.user.userId,
+              environment,
+            );
 
         response.redirect(url);
       }
@@ -249,7 +257,11 @@ export class PaymentSystemService {
       );
     }
 
-    const paymentPageUrlLive = `${process.env.PAYMENT_PAGE_BASE_URL}/checkout/${merchant.integrationId}?orderId=${createdPayin?.systemOrderId}&apiMode=true&environment=${environment}`;
+    const paymentPageUrlLive = `${process.env.PAYMENT_PAGE_BASE_URL}/checkout/${merchant.integrationId}?orderId=${createdPayin?.systemOrderId}&apiMode=true&environment=${environment}${
+      createPaymentOrderDto?.paymentMethod
+        ? `&paymentGateway=${createPaymentOrderDto.paymentMethod}`
+        : ''
+    }`;
 
     const paymentPageUrlSandbox = `${process.env.PAYMENT_PAGE_BASE_URL}/checkout/${merchant.integrationId}?orderId=${createdPayin?.systemOrderId}&apiMode=true&environment=${environment}&paymentGateway=${
       createPaymentOrderDto?.paymentMethod

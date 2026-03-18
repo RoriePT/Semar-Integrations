@@ -27,6 +27,15 @@ const Gateways = () => {
         <Grid.Col span={6}>
           <Gateway gateway={GatewayName.CASHFREE} />
         </Grid.Col>
+        <Grid.Col span={6}>
+          <Gateway gateway={GatewayName.DOKU} />
+        </Grid.Col>
+        <Grid.Col span={6}>
+          <Gateway gateway={GatewayName.MIDTRANS} />
+        </Grid.Col>
+        <Grid.Col span={6}>
+          <Gateway gateway={GatewayName.XENDIT} />
+        </Grid.Col>
       </Grid>
     </Container>
   );
