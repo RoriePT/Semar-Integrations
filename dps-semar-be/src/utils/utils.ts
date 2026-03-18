@@ -215,23 +215,24 @@ export const mapAndGetGatewayPayoutStatus = (
       return 'PENDING';
 
     case GatewayName.DOKU:
-      if (
-        status === 'SUCCESS' ||
-        status === 'COMPLETED' ||
-        status === 'PAID' ||
-        status === 'SETTLEMENT'
-      )
-        return 'SUCCESS';
+      {
+        const normalizedStatus = String(status).toUpperCase();
+        if (
+          ['00', 'SUCCESS', 'COMPLETED', 'PAID', 'SETTLEMENT'].includes(
+            normalizedStatus,
+          )
+        )
+          return 'SUCCESS';
 
-      if (
-        status === 'FAILED' ||
-        status === 'EXPIRED' ||
-        status === 'CANCELLED' ||
-        status === 'REJECTED'
-      )
-        return 'FAILED';
+        if (
+          ['04', '06', 'FAILED', 'EXPIRED', 'CANCELLED', 'REJECTED'].includes(
+            normalizedStatus,
+          )
+        )
+          return 'FAILED';
 
-      return 'PENDING';
+        return 'PENDING';
+      }
 
     case GatewayName.MIDTRANS:
       if (

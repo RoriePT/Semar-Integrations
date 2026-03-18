@@ -15,7 +15,7 @@ import { JwtService } from 'src/services/jwt/jwt.service';
 import { ChannelName, GatewayName } from 'src/utils/enum/enum';
 import { Repository } from 'typeorm';
 import { GetPayPageDto } from '../dto/getPayPage.dto';
-import { createHash, createHmac, randomUUID } from 'crypto';
+import { createHash, createHmac, createSign, randomUUID } from 'crypto';
 
 @Injectable()
 export class DokuService {
@@ -34,6 +34,161 @@ export class DokuService {
     private readonly httpService: HttpService,
     private readonly jwtService: JwtService,
   ) {}
+
+  private kirimDokuTokenCache:
+    | { environment: 'live' | 'sandbox'; accessToken: string; expiresAt: number }
+    | null = null;
+
+  private shouldLogDoku() {
+    return process.env.DOKU_DEBUG_LOGS === 'true';
+  }
+
+  private toPlainObject(input?: any) {
+    if (!input) return {};
+    if (typeof input.toJSON === 'function') return input.toJSON();
+    return { ...input };
+  }
+
+  private sanitizeHeaders(headers?: Record<string, any>) {
+    const plain = this.toPlainObject(headers);
+    const redactedKeys = [
+      'authorization',
+      'x-signature',
+      'signature',
+      'x-client-key',
+      'client-id',
+      'x-partner-id',
+      'x-timestamp',
+    ];
+    Object.keys(plain).forEach((key) => {
+      if (redactedKeys.includes(key.toLowerCase())) {
+        plain[key] = '[REDACTED]';
+      }
+    });
+    return plain;
+  }
+
+  private logDokuRequest({
+    label,
+    method,
+    url,
+    headers,
+    payload,
+  }: {
+    label: string;
+    method: string;
+    url: string;
+    headers?: Record<string, any>;
+    payload?: any;
+  }) {
+    if (!this.shouldLogDoku()) return;
+    console.log(
+      `\n==================== DOKU REQUEST: ${label} ====================`,
+    );
+    console.log(`METHOD: ${method}`);
+    console.log(`URL: ${url}`);
+    console.log('HEADERS:', this.sanitizeHeaders(headers));
+    if (payload !== undefined) {
+      console.log('PAYLOAD:', payload);
+    }
+    console.log('===============================================================\n');
+  }
+
+  private logDokuResponse({
+    label,
+    status,
+    data,
+  }: {
+    label: string;
+    status?: number;
+    data?: any;
+  }) {
+    if (!this.shouldLogDoku()) return;
+    console.log(
+      `\n==================== DOKU RESPONSE: ${label} ====================`,
+    );
+    if (status !== undefined) console.log(`HTTP STATUS: ${status}`);
+    console.log('DATA:', data);
+    console.log('===============================================================\n');
+  }
+
+  private logDokuError({
+    label,
+    error,
+  }: {
+    label: string;
+    error: any;
+  }) {
+    if (!this.shouldLogDoku()) return;
+    console.log(
+      `\n===================== DOKU ERROR: ${label} =====================`,
+    );
+    console.log('ERROR:', error);
+    console.log('===============================================================\n');
+  }
+
+  private formatDokuError(error: any) {
+    return {
+      message: error?.message,
+      code: error?.code,
+      status: error?.response?.status,
+      data: error?.response?.data,
+      url: error?.config?.url,
+      method: error?.config?.method,
+    };
+  }
+
+  private parsePayoutTransactionDetails(transactionDetails?: any) {
+    if (!transactionDetails) return {};
+    if (typeof transactionDetails === 'string') {
+      try {
+        return JSON.parse(transactionDetails);
+      } catch {
+        return {};
+      }
+    }
+    return transactionDetails;
+  }
+
+  private isRetriableDokuBalanceError(error: any) {
+    return (
+      error?.response?.status === 504 ||
+      error?.response?.data?.responseCode === '5041100'
+    );
+  }
+
+  private getKirimDokuSenderProfile() {
+    const senderFirstName = process.env.DOKU_KD_SENDER_FIRST_NAME?.trim();
+    const senderLastName = process.env.DOKU_KD_SENDER_LAST_NAME?.trim();
+    const senderPersonalId = process.env.DOKU_KD_SENDER_PERSONAL_ID?.trim();
+    const senderPersonalIdType =
+      process.env.DOKU_KD_SENDER_PERSONAL_ID_TYPE?.trim();
+
+    if (!senderFirstName) {
+      throw new ConflictException('DOKU_KD_SENDER_FIRST_NAME is missing.');
+    }
+
+    if (!senderLastName) {
+      throw new ConflictException('DOKU_KD_SENDER_LAST_NAME is missing.');
+    }
+
+    if (!senderPersonalId) {
+      throw new ConflictException('DOKU_KD_SENDER_PERSONAL_ID is missing.');
+    }
+
+    if (!senderPersonalIdType) {
+      throw new ConflictException(
+        'DOKU_KD_SENDER_PERSONAL_ID_TYPE is missing.',
+      );
+    }
+
+    return {
+      senderFirstName,
+      senderLastName,
+      senderPersonalId,
+      senderPersonalIdType,
+    };
+  }
 
   private async getCredentials(environment: 'live' | 'sandbox') {
     const doku = (await this.dokuRepository.find())[0];
@@ -140,6 +295,204 @@ export class DokuService {
     };
   }
 
+  private getSnapTimestamp(date = new Date()) {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const tzOffsetMinutes = -date.getTimezoneOffset();
+    const sign = tzOffsetMinutes >= 0 ? '+' : '-';
+    const absOffset = Math.abs(tzOffsetMinutes);
+    const hours = pad(Math.floor(absOffset / 60));
+    const minutes = pad(absOffset % 60);
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate(),
+    )}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+      date.getSeconds(),
+    )}${sign}${hours}:${minutes}`;
+  }
+
+  private getUtcTimestamp() {
+    return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
+
+  private normalizePrivateKey(key: string) {
+    if (!key) return '';
+    return key.includes('BEGIN') ? key.replace(/\\n/g, '\n') : key;
+  }
+
+  private buildAsymmetricSignature(privateKey: string, stringToSign: string) {
+    const signer = createSign('RSA-SHA256');
+    signer.update(stringToSign);
+    signer.end();
+    return signer.sign(privateKey, 'base64');
+  }
+
+  private generateExternalId() {
+    const rand = Math.floor(Math.random() * 1_000_000)
+      .toString()
+      .padStart(6, '0');
+    return `${Date.now()}${rand}`;
+  }
+
+  private formatAmountValue(amount: string | number) {
+    const parsed = Number.parseFloat(String(amount));
+    if (Number.isNaN(parsed)) return '0.00';
+    return parsed.toFixed(2);
+  }
+
+  private normalizePhoneNumber(phone?: string) {
+    if (!phone) return '628000000000';
+    const digits = phone.replace(/[^\d]/g, '');
+    if (digits.startsWith('62')) return digits;
+    if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+    return `62${digits}`;
+  }
+
+  private splitName(name?: string) {
+    if (!name) return { firstName: 'SEMAR', lastName: 'USER' };
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return { firstName: parts[0], lastName: 'USER' };
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(' '),
+    };
+  }
+
+  private async getKirimDokuAccessToken(environment: 'live' | 'sandbox') {
+    if (
+      this.kirimDokuTokenCache &&
+      this.kirimDokuTokenCache.environment === environment &&
+      Date.now() < this.kirimDokuTokenCache.expiresAt - 30_000
+    ) {
+      return this.kirimDokuTokenCache.accessToken;
+    }
+
+    const { clientId } = await this.getCredentials(environment);
+    const privateKey = this.normalizePrivateKey(
+      process.env.DOKU_SNAP_PRIVATE_KEY || '',
+    );
+    if (!privateKey)
+      throw new ConflictException('DOKU_SNAP_PRIVATE_KEY is missing.');
+
+    const timestamp = this.getUtcTimestamp();
+    const stringToSign = `${clientId}|${timestamp}`;
+    const signature = this.buildAsymmetricSignature(privateKey, stringToSign);
+
+    const requestTarget = '/authorization/v1/access-token/b2b';
+    const payload = { grantType: 'client_credentials' };
+
+    this.logDokuRequest({
+      label: 'ACCESS_TOKEN',
+      method: 'POST',
+      url: `${this.buildBaseUrl(environment)}${requestTarget}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CLIENT-KEY': clientId,
+        'X-TIMESTAMP': timestamp,
+        'X-SIGNATURE': signature,
+      },
+      payload,
+    });
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        `${this.buildBaseUrl(environment)}${requestTarget}`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CLIENT-KEY': clientId,
+            'X-TIMESTAMP': timestamp,
+            'X-SIGNATURE': signature,
+          },
+        },
+      ),
+    );
+
+    this.logDokuResponse({
+      label: 'ACCESS_TOKEN',
+      status: response?.status,
+      data: response?.data,
+    });
+
+    const accessToken =
+      response.data?.accessToken || response.data?.access_token;
+    if (!accessToken)
+      throw new ConflictException('DOKU access token is missing in response.');
+
+    const expiresIn = Number(response.data?.expiresIn || 900);
+    this.kirimDokuTokenCache = {
+      environment,
+      accessToken,
+      expiresAt: Date.now() + expiresIn * 1000,
+    };
+
+    return accessToken;
+  }
+
+  private buildSnapSignature({
+    httpMethod,
+    requestTarget,
+    accessToken,
+    body,
+    timestamp,
+    clientSecret,
+  }: {
+    httpMethod: string;
+    requestTarget: string;
+    accessToken: string;
+    body: any;
+    timestamp: string;
+    clientSecret: string;
+  }) {
+    const minifiedBody = JSON.stringify(body || {});
+    const bodyHash = createHash('sha256')
+      .update(minifiedBody)
+      .digest('hex')
+      .toLowerCase();
+    const stringToSign = `${httpMethod}:${requestTarget}:${accessToken}:${bodyHash}:${timestamp}`;
+    return createHmac('sha512', clientSecret).update(stringToSign).digest('base64');
+  }
+
+  private async buildSnapHeaders({
+    environment,
+    requestTarget,
+    body,
+    accessToken,
+    httpMethod = 'POST',
+  }: {
+    environment: 'live' | 'sandbox';
+    requestTarget: string;
+    body: any;
+    accessToken: string;
+    httpMethod?: string;
+  }) {
+    const { clientId, secretKey } = await this.getCredentials(environment);
+    const timestamp = this.getSnapTimestamp();
+    const externalId = this.generateExternalId();
+    const signature = this.buildSnapSignature({
+      httpMethod,
+      requestTarget,
+      accessToken,
+      body,
+      timestamp,
+      clientSecret: secretKey,
+    });
+
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        'X-PARTNER-ID': clientId,
+        'X-EXTERNAL-ID': externalId,
+        'X-SIGNATURE': signature,
+        'X-TIMESTAMP': timestamp,
+        'CHANNEL-ID': process.env.DOKU_SNAP_CHANNEL_ID || 'H2H',
+      },
+      externalId,
+      timestamp,
+    };
+  }
+
   async getPayPage(getPayPageDto: GetPayPageDto) {
     const { userId, amount, orderId, environment, channelName } = getPayPageDto;
 
@@ -181,20 +534,37 @@ export class DokuService {
 
     try {
       const requestTarget = '/checkout/v1/payment';
+      const requestUrl = `${this.buildBaseUrl(environment)}${requestTarget}`;
+      const requestHeaders = this.buildSignedHeaders(
+        clientId,
+        secretKey,
+        requestTarget,
+        payload,
+      );
+
+      this.logDokuRequest({
+        label: 'CHECKOUT_PAYIN',
+        method: 'POST',
+        url: requestUrl,
+        headers: requestHeaders,
+        payload,
+      });
+
       const response = await firstValueFrom(
         this.httpService.post(
-          `${this.buildBaseUrl(environment)}${requestTarget}`,
+          requestUrl,
           payload,
           {
-            headers: this.buildSignedHeaders(
-              clientId,
-              secretKey,
-              requestTarget,
-              payload,
-            ),
+            headers: requestHeaders,
           },
         ),
       );
+
+      this.logDokuResponse({
+        label: 'CHECKOUT_PAYIN',
+        status: response?.status,
+        data: response?.data,
+      });
 
       return {
         url:
@@ -207,6 +577,10 @@ export class DokuService {
           orderId,
       };
     } catch (error) {
+      this.logDokuError({
+        label: 'CHECKOUT_PAYIN',
+        error: error?.response?.data || error?.toString(),
+      });
       await this.payinRepository.update(
         { systemOrderId: orderId },
         { gatewayError: error?.response?.data || error?.toString() },
@@ -226,12 +600,24 @@ export class DokuService {
         secretKey,
         requestTarget,
       );
+      const requestUrl = `${this.buildBaseUrl(environment)}${requestTarget}`;
+
+      this.logDokuRequest({
+        label: 'PAYIN_STATUS',
+        method: 'GET',
+        url: requestUrl,
+        headers,
+      });
 
       const response = await firstValueFrom(
-        this.httpService.get(`${this.buildBaseUrl(environment)}${requestTarget}`, {
-          headers,
-        }),
+        this.httpService.get(requestUrl, { headers }),
       );
+
+      this.logDokuResponse({
+        label: 'PAYIN_STATUS',
+        status: response?.status,
+        data: response?.data,
+      });
 
       const gatewayStatus =
         response.data?.transaction?.status ||
@@ -257,6 +643,10 @@ export class DokuService {
         },
       };
     } catch (error) {
+      this.logDokuError({
+        label: 'PAYIN_STATUS',
+        error: error?.response?.data || error?.toString(),
+      });
       console.log({
         error: error?.response?.data || error?.toString(),
         httpStatus: error?.response?.status,
@@ -315,63 +705,397 @@ export class DokuService {
     };
   }
 
-  private async createPayout(
-    payoutPayload: any,
-    orderId: string,
-    environment: 'live' | 'sandbox' = 'live',
-  ) {
-    const { clientId, secretKey } = await this.getCredentials(environment);
+  private async kirimDokuAccountInquiry({
+    orderId,
+    amount,
+    beneficiary,
+    customerNumber,
+    environment,
+  }: {
+    orderId: string;
+    amount: string | number;
+    beneficiary: { account_number: string; account_name: string; bank_code: string };
+    customerNumber: string;
+    environment: 'live' | 'sandbox';
+  }) {
+    const requestTarget = '/snap/v1.1/emoney/bank-account-inquiry';
+    const accessToken = await this.getKirimDokuAccessToken(environment);
+    const body = {
+      partnerReferenceNo: `${orderId}-INQ`,
+      customerNumber,
+      beneficiaryAccountNumber: beneficiary.account_number,
+      amount: {
+        value: this.formatAmountValue(amount),
+        currency: 'IDR',
+      },
+      additionalInfo: {
+        beneficiaryBankCode: beneficiary.bank_code,
+        beneficiaryAccountName: beneficiary.account_name,
+        senderCountryCode: 'ID',
+      },
+    };
+
+    const { headers, externalId } = await this.buildSnapHeaders({
+      environment,
+      requestTarget,
+      body,
+      accessToken,
+    });
+
+    this.logDokuRequest({
+      label: 'KD_ACCOUNT_INQUIRY',
+      method: 'POST',
+      url: `${this.buildBaseUrl(environment)}${requestTarget}`,
+      headers,
+      payload: body,
+    });
 
     try {
-      const requestTarget = '/disbursement/v1/transfers';
       const response = await firstValueFrom(
         this.httpService.post(
           `${this.buildBaseUrl(environment)}${requestTarget}`,
-          payoutPayload,
-          {
-            headers: this.buildSignedHeaders(
-              clientId,
-              secretKey,
-              requestTarget,
-              payoutPayload,
-            ),
-          },
+          body,
+          { headers },
         ),
       );
 
-      return response.data;
+      this.logDokuResponse({
+        label: 'KD_ACCOUNT_INQUIRY',
+        status: response?.status,
+        data: response?.data,
+      });
+
+      return { data: response.data, externalId };
     } catch (error) {
-      await this.payoutRepository.update(
-        { systemOrderId: orderId },
-        { gatewayError: error?.response?.data || error?.toString() },
-      );
-      console.log({ error: error?.response?.data || error?.toString() });
+      this.logDokuError({
+        label: 'KD_ACCOUNT_INQUIRY',
+        error: this.formatDokuError(error),
+      });
+      throw error;
     }
   }
 
-  async makePayoutPaymentForEndUsers({ userId, amount, orderId, mode }) {
+  private async kirimDokuBalanceInquiry({
+    orderId,
+    environment,
+  }: {
+    orderId: string;
+    environment: 'live' | 'sandbox';
+  }) {
+    const requestTarget = '/snap/v1.1/balance-inquiry';
+    const accessToken = await this.getKirimDokuAccessToken(environment);
+    const accountNo = process.env.DOKU_KD_ACCOUNT_NO;
+    if (!accountNo)
+      throw new ConflictException('DOKU_KD_ACCOUNT_NO is missing.');
+
+    const body = {
+      partnerReferenceNo: `${orderId}-BAL`,
+      accountNo,
+    };
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const { headers, externalId } = await this.buildSnapHeaders({
+          environment,
+          requestTarget,
+          body,
+          accessToken,
+        });
+
+        this.logDokuRequest({
+          label: `KD_BALANCE_INQUIRY_ATTEMPT_${attempt}`,
+          method: 'POST',
+          url: `${this.buildBaseUrl(environment)}${requestTarget}`,
+          headers,
+          payload: body,
+        });
+
+        const response = await firstValueFrom(
+          this.httpService.post(
+            `${this.buildBaseUrl(environment)}${requestTarget}`,
+            body,
+            { headers },
+          ),
+        );
+
+        this.logDokuResponse({
+          label: `KD_BALANCE_INQUIRY_ATTEMPT_${attempt}`,
+          status: response?.status,
+          data: response?.data,
+        });
+
+        return { data: response.data, externalId };
+      } catch (error) {
+        this.logDokuError({
+          label: `KD_BALANCE_INQUIRY_ATTEMPT_${attempt}`,
+          error: this.formatDokuError(error),
+        });
+
+        if (attempt === 2 || !this.isRetriableDokuBalanceError(error)) {
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async kirimDokuTransferBank({
+    orderId,
+    amount,
+    beneficiary,
+    customerNumber,
+    sessionId,
+    environment,
+  }: {
+    orderId: string;
+    amount: string | number;
+    beneficiary: { account_number: string; account_name: string; bank_code: string };
+    customerNumber: string;
+    sessionId: string;
+    environment: 'live' | 'sandbox';
+  }) {
+    const requestTarget = '/snap/v1.1/emoney/transfer-bank';
+    const accessToken = await this.getKirimDokuAccessToken(environment);
+    const { firstName, lastName } = this.splitName(beneficiary.account_name);
+    const channelCode = process.env.DOKU_KD_CHANNEL_CODE || '07';
+    const senderProfile = this.getKirimDokuSenderProfile();
+
+    const body = {
+      partnerReferenceNo: orderId,
+      customerNumber,
+      beneficiaryAccountNumber: beneficiary.account_number,
+      beneficiaryBankCode: beneficiary.bank_code,
+      amount: {
+        value: this.formatAmountValue(amount),
+        currency: 'IDR',
+      },
+      sessionId,
+      additionalInfo: {
+        channelCode,
+        beneficiaryAccountName: beneficiary.account_name,
+        beneficiaryFirstName: firstName,
+        beneficiaryLastName: lastName,
+        beneficiaryPhoneNumber: customerNumber,
+        senderCountryCode: 'ID',
+        senderFirstName: senderProfile.senderFirstName,
+        senderLastName: senderProfile.senderLastName,
+        senderPersonalId: senderProfile.senderPersonalId,
+        senderPersonalIdType: senderProfile.senderPersonalIdType,
+      },
+    };
+
+    const { headers, externalId } = await this.buildSnapHeaders({
+      environment,
+      requestTarget,
+      body,
+      accessToken,
+    });
+
+    this.logDokuRequest({
+      label: 'KD_TRANSFER_BANK',
+      method: 'POST',
+      url: `${this.buildBaseUrl(environment)}${requestTarget}`,
+      headers,
+      payload: body,
+    });
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.buildBaseUrl(environment)}${requestTarget}`,
+          body,
+          { headers },
+        ),
+      );
+
+      this.logDokuResponse({
+        label: 'KD_TRANSFER_BANK',
+        status: response?.status,
+        data: response?.data,
+      });
+
+      return { data: response.data, externalId };
+    } catch (error) {
+      this.logDokuError({
+        label: 'KD_TRANSFER_BANK',
+        error: this.formatDokuError(error),
+      });
+      throw error;
+    }
+  }
+
+  private async kirimDokuCheckStatus({
+    partnerReferenceNo,
+    referenceNo,
+    originalExternalId,
+    environment,
+  }: {
+    partnerReferenceNo: string;
+    referenceNo?: string;
+    originalExternalId?: string;
+    environment: 'live' | 'sandbox';
+  }) {
+    const requestTarget = '/snap/v1.1/qr/qr-mpm-status';
+    const accessToken = await this.getKirimDokuAccessToken(environment);
+    const body: Record<string, string> = {
+      originalPartnerReferenceNo: partnerReferenceNo,
+      serviceCode: '43',
+    };
+    if (referenceNo) body.originalReferenceNo = referenceNo;
+    if (originalExternalId) body.originalExternalId = originalExternalId;
+
+    const { headers } = await this.buildSnapHeaders({
+      environment,
+      requestTarget,
+      body,
+      accessToken,
+    });
+
+    this.logDokuRequest({
+      label: 'KD_CHECK_STATUS',
+      method: 'POST',
+      url: `${this.buildBaseUrl(environment)}${requestTarget}`,
+      headers,
+      payload: body,
+    });
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.buildBaseUrl(environment)}${requestTarget}`,
+          body,
+          { headers },
+        ),
+      );
+
+      this.logDokuResponse({
+        label: 'KD_CHECK_STATUS',
+        status: response?.status,
+        data: response?.data,
+      });
+
+      return response.data;
+    } catch (error) {
+      this.logDokuError({
+        label: 'KD_CHECK_STATUS',
+        error: this.formatDokuError(error),
+      });
+      throw error;
+    }
+  }
+
+  async makePayoutPaymentForEndUsers({
+    userId,
+    amount,
+    orderId,
+    mode,
+    environment = 'live',
+  }: {
+    userId: string;
+    amount: number | string;
+    orderId: string;
+    mode: string;
+    environment?: 'live' | 'sandbox';
+  }) {
     const endUser = await this.endUserRepository.findOneBy({ userId });
     if (!endUser) throw new NotFoundException('End user not found!');
 
-    const transferId = `DOKU-${randomUUID()}`;
-    const payoutPayload = {
-      partner_reference_no: transferId,
-      amount: Number(parseFloat(String(amount)).toFixed(2)),
-      beneficiary: this.buildPayoutBeneficiaryForEndUser(endUser, mode),
-      description: `SEMAR payout ${orderId}`,
-    };
+    try {
+      const beneficiary = this.buildPayoutBeneficiaryForEndUser(endUser, mode);
+      if (!beneficiary?.account_number || !beneficiary?.bank_code)
+        throw new ConflictException('Bank details are missing for payout.');
 
-    const response: any = await this.createPayout(payoutPayload, orderId);
+      const customerNumber = this.normalizePhoneNumber(endUser?.mobile);
 
-    return {
-      gatewayName: GatewayName.DOKU,
-      transactionId:
-        response?.transfer_id || response?.partner_reference_no || transferId,
-      transactionReceipt: 'DOKU',
-      paymentStatus:
-        response?.status || response?.transaction_status || 'PENDING',
-      transactionDetails: response,
-    };
+      const accountInquiry = await this.kirimDokuAccountInquiry({
+        orderId,
+        amount,
+        beneficiary: {
+          account_number: beneficiary.account_number,
+          account_name: beneficiary.account_name,
+          bank_code: beneficiary.bank_code,
+        },
+        customerNumber,
+        environment,
+      });
+
+      const accountInquiryCode = String(
+        accountInquiry?.data?.responseCode || '',
+      );
+      if (accountInquiryCode && !accountInquiryCode.startsWith('200'))
+        throw new ConflictException(accountInquiry?.data || 'Account inquiry failed.');
+
+      const sessionId =
+        accountInquiry?.data?.sessionId ||
+        accountInquiry?.data?.referenceNo ||
+        accountInquiry?.data?.reference_no;
+      if (!sessionId)
+        throw new ConflictException('DOKU account inquiry did not return sessionId.');
+
+      let balanceInquiry = null;
+      try {
+        balanceInquiry = await this.kirimDokuBalanceInquiry({
+          orderId,
+          environment,
+        });
+      } catch (error) {
+        if (!this.isRetriableDokuBalanceError(error)) throw error;
+
+        this.logDokuResponse({
+          label: 'KD_BALANCE_INQUIRY_SKIPPED',
+          data: {
+            reason: 'Continuing payout after DOKU balance inquiry timeout.',
+            error: this.formatDokuError(error),
+          },
+        });
+      }
+
+      const transfer = await this.kirimDokuTransferBank({
+        orderId,
+        amount,
+        beneficiary: {
+          account_number: beneficiary.account_number,
+          account_name: beneficiary.account_name,
+          bank_code: beneficiary.bank_code,
+        },
+        customerNumber,
+        sessionId,
+        environment,
+      });
+
+      const responseCode = String(transfer?.data?.responseCode || '');
+      const paymentStatus = responseCode.startsWith('200') ? 'PENDING' : 'FAILED';
+
+      return {
+        gatewayName: GatewayName.DOKU,
+        transactionId: orderId,
+        transactionReceipt: 'DOKU',
+        paymentStatus,
+        transactionDetails: {
+          accountInquiry: accountInquiry.data,
+          balanceInquiry: balanceInquiry?.data || null,
+          transfer: transfer.data,
+          partnerReferenceNo: orderId,
+          referenceNo:
+            transfer?.data?.referenceNo || transfer?.data?.reference_no,
+          externalId: transfer.externalId,
+          sessionId,
+        },
+      };
+    } catch (error) {
+      const err = error?.response?.data || error?.toString() || error;
+      await this.payoutRepository.update(
+        { systemOrderId: orderId },
+        { gatewayError: err },
+      );
+
+      return {
+        gatewayName: GatewayName.DOKU,
+        transactionId: orderId,
+        transactionReceipt: 'DOKU',
+        paymentStatus: 'FAILED',
+        transactionDetails: err,
+      };
+    }
   }
 
   async makePayoutPaymentForInternalUsers({
@@ -379,6 +1103,13 @@ export class DokuService {
     amount,
     orderId,
     mode,
+    environment = 'live',
+  }: {
+    identityId: number;
+    amount: number | string;
+    orderId: string;
+    mode: string;
+    environment?: 'live' | 'sandbox';
   }) {
     const identity = await this.identityRepository.findOne({
       where: { id: identityId },
@@ -386,63 +1117,163 @@ export class DokuService {
     });
     if (!identity) throw new NotFoundException('Identity not found!');
 
-    const transferId = `DOKU-${randomUUID()}`;
-    const payoutPayload = {
-      partner_reference_no: transferId,
-      amount: Number(parseFloat(String(amount)).toFixed(2)),
-      beneficiary: this.buildPayoutBeneficiaryForIdentity(identity, mode),
-      description: `SEMAR withdrawal ${orderId}`,
-    };
-
-    const response: any = await this.createPayout(payoutPayload, orderId);
-
-    return {
-      gatewayName: GatewayName.DOKU,
-      transactionId:
-        response?.transfer_id || response?.partner_reference_no || transferId,
-      transactionReceipt: 'DOKU',
-      paymentStatus:
-        response?.status || response?.transaction_status || 'PENDING',
-      transactionDetails: response,
-    };
-  }
-
-  async getPayoutDetails(transferId: string) {
-    if (!transferId) return;
-
-    const payload = { partner_reference_no: transferId };
-    const { clientId, secretKey } = await this.getCredentials('live');
-
     try {
-      const requestTarget = '/disbursement/v1/status';
-      const response = await firstValueFrom(
-        this.httpService.post(
-          `${this.buildBaseUrl('live')}${requestTarget}`,
-          payload,
-          {
-            headers: this.buildSignedHeaders(
-              clientId,
-              secretKey,
-              requestTarget,
-              payload,
-            ),
+      const beneficiary = this.buildPayoutBeneficiaryForIdentity(identity, mode);
+      if (!beneficiary?.account_number || !beneficiary?.bank_code)
+        throw new ConflictException('Bank details are missing for payout.');
+
+      const customerNumber = this.normalizePhoneNumber(
+        identity?.netBanking?.[0]?.mobile ||
+          identity?.eWallet?.[0]?.mobile ||
+          identity?.email,
+      );
+
+      const accountInquiry = await this.kirimDokuAccountInquiry({
+        orderId,
+        amount,
+        beneficiary: {
+          account_number: beneficiary.account_number,
+          account_name: beneficiary.account_name,
+          bank_code: beneficiary.bank_code,
+        },
+        customerNumber,
+        environment,
+      });
+
+      const accountInquiryCode = String(
+        accountInquiry?.data?.responseCode || '',
+      );
+      if (accountInquiryCode && !accountInquiryCode.startsWith('200'))
+        throw new ConflictException(accountInquiry?.data || 'Account inquiry failed.');
+
+      const sessionId =
+        accountInquiry?.data?.sessionId ||
+        accountInquiry?.data?.referenceNo ||
+        accountInquiry?.data?.reference_no;
+      if (!sessionId)
+        throw new ConflictException('DOKU account inquiry did not return sessionId.');
+
+      let balanceInquiry = null;
+      try {
+        balanceInquiry = await this.kirimDokuBalanceInquiry({
+          orderId,
+          environment,
+        });
+      } catch (error) {
+        if (!this.isRetriableDokuBalanceError(error)) throw error;
+
+        this.logDokuResponse({
+          label: 'KD_BALANCE_INQUIRY_SKIPPED',
+          data: {
+            reason: 'Continuing payout after DOKU balance inquiry timeout.',
+            error: this.formatDokuError(error),
           },
-        ),
+        });
+      }
+
+      const transfer = await this.kirimDokuTransferBank({
+        orderId,
+        amount,
+        beneficiary: {
+          account_number: beneficiary.account_number,
+          account_name: beneficiary.account_name,
+          bank_code: beneficiary.bank_code,
+        },
+        customerNumber,
+        sessionId,
+        environment,
+      });
+
+      const responseCode = String(transfer?.data?.responseCode || '');
+      const paymentStatus = responseCode.startsWith('200') ? 'PENDING' : 'FAILED';
+
+      return {
+        gatewayName: GatewayName.DOKU,
+        transactionId: orderId,
+        transactionReceipt: 'DOKU',
+        paymentStatus,
+        transactionDetails: {
+          accountInquiry: accountInquiry.data,
+          balanceInquiry: balanceInquiry?.data || null,
+          transfer: transfer.data,
+          partnerReferenceNo: orderId,
+          referenceNo:
+            transfer?.data?.referenceNo || transfer?.data?.reference_no,
+          externalId: transfer.externalId,
+          sessionId,
+        },
+      };
+    } catch (error) {
+      const err = error?.response?.data || error?.toString() || error;
+      await this.payoutRepository.update(
+        { systemOrderId: orderId },
+        { gatewayError: err },
       );
 
       return {
-        status:
-          response.data?.status ||
-          response.data?.transaction_status ||
-          response.data?.latest_status,
-        utr:
-          response.data?.beneficiary_reference_no ||
-          response.data?.reference_no ||
-          null,
-        details: response.data,
+        gatewayName: GatewayName.DOKU,
+        transactionId: orderId,
+        transactionReceipt: 'DOKU',
+        paymentStatus: 'FAILED',
+        transactionDetails: err,
+      };
+    }
+  }
+
+  async getPayoutDetails(
+    orderId: string,
+    environment: 'live' | 'sandbox' = 'live',
+  ) {
+    if (!orderId) return;
+
+    try {
+      const payout = await this.payoutRepository.findOne({
+        where: [
+          { transactionId: orderId },
+          { systemOrderId: orderId },
+          { merchantOrderId: orderId },
+        ],
+      });
+
+      const details = this.parsePayoutTransactionDetails(
+        payout?.transactionDetails,
+      );
+      const partnerReferenceNo = details?.partnerReferenceNo || payout?.systemOrderId || orderId;
+      const referenceNo =
+        details?.referenceNo ||
+        details?.transfer?.referenceNo ||
+        details?.transfer?.reference_no;
+      const originalExternalId = details?.externalId;
+
+      const response = await this.kirimDokuCheckStatus({
+        partnerReferenceNo,
+        referenceNo,
+        originalExternalId,
+        environment,
+      });
+
+      const latestStatus =
+        response?.latestTransactionStatus ||
+        response?.transactionStatus ||
+        response?.status ||
+        'PENDING';
+
+      const normalizedStatus = String(latestStatus).toUpperCase();
+      let status = 'PENDING';
+
+      if (['00', 'SUCCESS', 'COMPLETED', 'PAID', 'SETTLEMENT'].includes(normalizedStatus))
+        status = 'SUCCESS';
+
+      if (['04', '06', 'FAILED', 'REJECTED', 'EXPIRED', 'CANCELLED'].includes(normalizedStatus))
+        status = 'FAILED';
+
+      return {
+        status,
+        utr: response?.additionalInfo?.beneficiaryReferenceNo || null,
+        details: response,
       };
     } catch (error) {
-      console.log({ error: error?.response?.data || error?.toString() });
+      console.log('❌ DOKU Status Error:', error?.response?.data || error?.toString());
     }
   }
 }
