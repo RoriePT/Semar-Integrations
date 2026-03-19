@@ -50,6 +50,11 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     payouts_client_secret: "",
     server_key: "",
     client_key: "",
+    disbursement_merchant_id: "",
+    disbursement_creator_api_key: "",
+    disbursement_creator_merchant_key: "",
+    disbursement_approver_api_key: "",
+    disbursement_approver_merchant_key: "",
   });
 
   const [sandboxFields, setSandboxFields] = useState({
@@ -64,6 +69,11 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     sandbox_client_secret: "",
     sandbox_server_key: "",
     sandbox_client_key: "",
+    sandbox_disbursement_merchant_id: "",
+    sandbox_disbursement_creator_api_key: "",
+    sandbox_disbursement_creator_merchant_key: "",
+    sandbox_disbursement_approver_api_key: "",
+    sandbox_disbursement_approver_merchant_key: "",
   });
 
   const [errors, setErrors] = useState({
@@ -92,6 +102,16 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
     client_key: "",
     sandbox_server_key: "",
     sandbox_client_key: "",
+    disbursement_merchant_id: "",
+    disbursement_creator_api_key: "",
+    disbursement_creator_merchant_key: "",
+    disbursement_approver_api_key: "",
+    disbursement_approver_merchant_key: "",
+    sandbox_disbursement_merchant_id: "",
+    sandbox_disbursement_creator_api_key: "",
+    sandbox_disbursement_creator_merchant_key: "",
+    sandbox_disbursement_approver_api_key: "",
+    sandbox_disbursement_approver_merchant_key: "",
   });
 
   const [currentTab, setCurrentTab] = useState("live");
@@ -123,6 +143,16 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
       client_key: "",
       sandbox_server_key: "",
       sandbox_client_key: "",
+      disbursement_merchant_id: "",
+      disbursement_creator_api_key: "",
+      disbursement_creator_merchant_key: "",
+      disbursement_approver_api_key: "",
+      disbursement_approver_merchant_key: "",
+      sandbox_disbursement_merchant_id: "",
+      sandbox_disbursement_creator_api_key: "",
+      sandbox_disbursement_creator_merchant_key: "",
+      sandbox_disbursement_approver_api_key: "",
+      sandbox_disbursement_approver_merchant_key: "",
     };
 
     let isValid = true;
@@ -358,6 +388,15 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
             response = await updateMidtrans(null, null, {
               server_key: liveFields.server_key,
               client_key: liveFields.client_key,
+              disbursement_merchant_id: liveFields.disbursement_merchant_id,
+              disbursement_creator_api_key:
+                liveFields.disbursement_creator_api_key,
+              disbursement_creator_merchant_key:
+                liveFields.disbursement_creator_merchant_key,
+              disbursement_approver_api_key:
+                liveFields.disbursement_approver_api_key,
+              disbursement_approver_merchant_key:
+                liveFields.disbursement_approver_merchant_key,
             });
           } else if (gateway === GatewayName.XENDIT) {
             response = await updateXendit(null, null, {
@@ -398,6 +437,16 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
             response = await updateMidtrans(null, null, {
               sandbox_server_key: sandboxFields.sandbox_server_key,
               sandbox_client_key: sandboxFields.sandbox_client_key,
+              sandbox_disbursement_merchant_id:
+                sandboxFields.sandbox_disbursement_merchant_id,
+              sandbox_disbursement_creator_api_key:
+                sandboxFields.sandbox_disbursement_creator_api_key,
+              sandbox_disbursement_creator_merchant_key:
+                sandboxFields.sandbox_disbursement_creator_merchant_key,
+              sandbox_disbursement_approver_api_key:
+                sandboxFields.sandbox_disbursement_approver_api_key,
+              sandbox_disbursement_approver_merchant_key:
+                sandboxFields.sandbox_disbursement_approver_merchant_key,
             });
           } else if (gateway === GatewayName.XENDIT) {
             response = await updateXendit(null, null, {
@@ -431,6 +480,11 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
               payouts_client_secret: "",
               server_key: "",
               client_key: "",
+              disbursement_merchant_id: "",
+              disbursement_creator_api_key: "",
+              disbursement_creator_merchant_key: "",
+              disbursement_approver_api_key: "",
+              disbursement_approver_merchant_key: "",
             });
           } else {
             setSandboxFields({
@@ -445,6 +499,11 @@ const KeysForm: React.FC<KetformProps> = ({ opened, handlers, gateway }) => {
               sandbox_client_secret: "",
               sandbox_server_key: "",
               sandbox_client_key: "",
+              sandbox_disbursement_merchant_id: "",
+              sandbox_disbursement_creator_api_key: "",
+              sandbox_disbursement_creator_merchant_key: "",
+              sandbox_disbursement_approver_api_key: "",
+              sandbox_disbursement_approver_merchant_key: "",
             });
           }
         }

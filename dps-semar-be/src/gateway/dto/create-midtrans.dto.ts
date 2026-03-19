@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsBoolean, IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateMidtransDto {
   @IsNotEmpty()
@@ -25,6 +25,46 @@ export class CreateMidtransDto {
   @IsNotEmpty()
   @IsString()
   sandbox_client_key: string;
+
+  @IsOptional()
+  @IsString()
+  disbursement_merchant_id?: string;
+
+  @IsOptional()
+  @IsString()
+  disbursement_creator_api_key?: string;
+
+  @IsOptional()
+  @IsString()
+  disbursement_creator_merchant_key?: string;
+
+  @IsOptional()
+  @IsString()
+  disbursement_approver_api_key?: string;
+
+  @IsOptional()
+  @IsString()
+  disbursement_approver_merchant_key?: string;
+
+  @IsOptional()
+  @IsString()
+  sandbox_disbursement_merchant_id?: string;
+
+  @IsOptional()
+  @IsString()
+  sandbox_disbursement_creator_api_key?: string;
+
+  @IsOptional()
+  @IsString()
+  sandbox_disbursement_creator_merchant_key?: string;
+
+  @IsOptional()
+  @IsString()
+  sandbox_disbursement_approver_api_key?: string;
+
+  @IsOptional()
+  @IsString()
+  sandbox_disbursement_approver_merchant_key?: string;
 }
 
 export class UpdateMidtransDto extends PartialType(CreateMidtransDto) {}

@@ -235,21 +235,27 @@ export const mapAndGetGatewayPayoutStatus = (
       }
 
     case GatewayName.MIDTRANS:
-      if (
-        status === 'settlement' ||
-        status === 'capture' ||
-        status === 'SUCCESS'
-      )
-        return 'SUCCESS';
+      {
+        const normalizedStatus = String(status || '').toLowerCase();
 
-      if (
-        status === 'deny' ||
-        status === 'expire' ||
-        status === 'cancel' ||
-        status === 'failed' ||
-        status === 'FAILED'
-      )
-        return 'FAILED';
+        if (
+          [
+            'settlement',
+            'capture',
+            'success',
+            'completed',
+            'ok',
+          ].includes(normalizedStatus)
+        )
+          return 'SUCCESS';
+
+        if (
+          ['deny', 'expire', 'cancel', 'failed', 'failure', 'rejected'].includes(
+            normalizedStatus,
+          )
+        )
+          return 'FAILED';
+      }
 
       return 'PENDING';
 

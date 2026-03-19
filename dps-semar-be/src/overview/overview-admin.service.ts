@@ -271,6 +271,24 @@ export class OverviewAdminService {
       startDate,
       endDate,
     );
+    const payinsDokuCount = await this.getGatewayCount(
+      OrderType.PAYIN,
+      GatewayName.DOKU,
+      startDate,
+      endDate,
+    );
+    const payinsMidtransCount = await this.getGatewayCount(
+      OrderType.PAYIN,
+      GatewayName.MIDTRANS,
+      startDate,
+      endDate,
+    );
+    const payinsXenditCount = await this.getGatewayCount(
+      OrderType.PAYIN,
+      GatewayName.XENDIT,
+      startDate,
+      endDate,
+    );
 
     const payinsMemberChannelUpiCount = await this.getMemberChannelNameCount(
       OrderType.PAYIN,
@@ -431,6 +449,24 @@ export class OverviewAdminService {
       startDate,
       endDate,
     );
+    const payoutsDokuCount = await this.getGatewayCount(
+      OrderType.PAYOUT,
+      GatewayName.DOKU,
+      startDate,
+      endDate,
+    );
+    const payoutsMidtransCount = await this.getGatewayCount(
+      OrderType.PAYOUT,
+      GatewayName.MIDTRANS,
+      startDate,
+      endDate,
+    );
+    const payoutsXenditCount = await this.getGatewayCount(
+      OrderType.PAYOUT,
+      GatewayName.XENDIT,
+      startDate,
+      endDate,
+    );
     const payoutsMemberChannelCount = await this.getGatewayCount(
       OrderType.PAYOUT,
       null,
@@ -579,6 +615,9 @@ export class OverviewAdminService {
                 uniqpay: payinsUniqpayCount,
                 payU: payinsPayuCount,
                 cashfree: payinsCashfreeCount,
+                doku: payinsDokuCount,
+                midtrans: payinsMidtransCount,
+                xendit: payinsXenditCount,
               },
               distribution: {
                 memberChannel: {
@@ -624,6 +663,9 @@ export class OverviewAdminService {
                 uniqpay: payoutsUniqpayCount,
                 payU: payoutsPayuCount,
                 cashfree: payoutsCashfreeCount,
+                doku: payoutsDokuCount,
+                midtrans: payoutsMidtransCount,
+                xendit: payoutsXenditCount,
               },
               distribution: {
                 memberChannel: {
@@ -1770,6 +1812,14 @@ export class OverviewAdminService {
           if (curr?.gatewayName === GatewayName.UNIQPAY) prev.uniqpayUpi++;
           if (curr?.gatewayName === GatewayName.PAYU) prev.payuUpi++;
         }
+        if (curr.channel === ChannelName.QRIS) {
+          prev.qris++;
+          if (curr?.payinMadeOn === PaymentMadeOn.MEMBER)
+            prev.memberChannelQris++;
+          if (curr?.gatewayName === GatewayName.DOKU) prev.dokuQris++;
+          if (curr?.gatewayName === GatewayName.MIDTRANS) prev.midtransQris++;
+          if (curr?.gatewayName === GatewayName.XENDIT) prev.xenditQris++;
+        }
         if (curr.channel === ChannelName.BANKING) {
           prev.netBanking++;
           if (curr?.payinMadeOn === PaymentMadeOn.MEMBER)
@@ -1794,14 +1844,19 @@ export class OverviewAdminService {
       },
       {
         upi: 0,
+        qris: 0,
         netBanking: 0,
         eWallet: 0,
         memberChannelUpi: 0,
+        memberChannelQris: 0,
         phonepeUpi: 0,
         razorpayUpi: 0,
         uniqpayUpi: 0,
         payuUpi: 0,
         cashfreeUpi: 0,
+        dokuQris: 0,
+        midtransQris: 0,
+        xenditQris: 0,
         memberChannelBanking: 0,
         phonepeBanking: 0,
         razorpayBanking: 0,
@@ -1829,6 +1884,14 @@ export class OverviewAdminService {
           if (curr.gatewayName === GatewayName.PAYU) prev.payuUpi++;
           if (curr.gatewayName === GatewayName.PAYU) prev.cashfreeUpi++;
         }
+        if (curr.channel === ChannelName.QRIS) {
+          prev.qris++;
+          if (curr?.payoutMadeVia === PaymentMadeOn.MEMBER)
+            prev.memberChannelQris++;
+          if (curr.gatewayName === GatewayName.DOKU) prev.dokuQris++;
+          if (curr.gatewayName === GatewayName.MIDTRANS) prev.midtransQris++;
+          if (curr.gatewayName === GatewayName.XENDIT) prev.xenditQris++;
+        }
         if (curr.channel === ChannelName.BANKING) {
           prev.netBanking++;
           if (curr?.payoutMadeVia === PaymentMadeOn.MEMBER)
@@ -1852,14 +1915,19 @@ export class OverviewAdminService {
       },
       {
         upi: 0,
+        qris: 0,
         netBanking: 0,
         eWallet: 0,
         memberChannelUpi: 0,
+        memberChannelQris: 0,
         phonepeUpi: 0,
         razorpayUpi: 0,
         uniqpayUpi: 0,
         payuUpi: 0,
         cashfreeUpi: 0,
+        dokuQris: 0,
+        midtransQris: 0,
+        xenditQris: 0,
         memberChannelBanking: 0,
         phonepeBanking: 0,
         razorpayBanking: 0,
@@ -1879,10 +1947,17 @@ export class OverviewAdminService {
       payins: {
         orders: {
           upi: payins.upi,
+          qris: payins.qris,
           netBanking: payins.netBanking,
           eWallet: payins.eWallet,
         },
         distribution: {
+          qris: {
+            memberChannel: payins.memberChannelQris,
+            doku: payins.dokuQris,
+            midtrans: payins.midtransQris,
+            xendit: payins.xenditQris,
+          },
           upi: {
             memberChannel: payins.memberChannelUpi,
             phonepe: payins.phonepeUpi,
@@ -1912,10 +1987,17 @@ export class OverviewAdminService {
       payouts: {
         orders: {
           upi: payouts.upi,
+          qris: payouts.qris,
           netBanking: payouts.netBanking,
           eWallet: payouts.eWallet,
         },
         distribution: {
+          qris: {
+            memberChannel: payouts.memberChannelQris,
+            doku: payouts.dokuQris,
+            midtrans: payouts.midtransQris,
+            xendit: payouts.xenditQris,
+          },
           upi: {
             memberChannel: payouts.memberChannelUpi,
             phonepe: payouts.phonepeUpi,

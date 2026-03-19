@@ -79,6 +79,16 @@ export const loadMidtransData = () => {
     client_key: 'dummy',
     sandbox_server_key: 'dummy',
     sandbox_client_key: 'dummy',
+    disbursement_merchant_id: 'dummy',
+    disbursement_creator_api_key: 'dummy',
+    disbursement_creator_merchant_key: 'dummy',
+    disbursement_approver_api_key: 'dummy',
+    disbursement_approver_merchant_key: 'dummy',
+    sandbox_disbursement_merchant_id: 'dummy',
+    sandbox_disbursement_creator_api_key: 'dummy',
+    sandbox_disbursement_creator_merchant_key: 'dummy',
+    sandbox_disbursement_approver_api_key: 'dummy',
+    sandbox_disbursement_approver_merchant_key: 'dummy',
   };
 };
 

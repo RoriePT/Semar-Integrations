@@ -86,9 +86,17 @@ export class WithdrawalAdminService {
 
     // Apply filterChannelArray filter
     if (filterChannelArray && filterChannelArray.length > 0) {
-      queryBuilder.andWhere('withdrawal.channel IN (:...filterChannelArray)', {
-        filterChannelArray,
-      });
+      const validChannels = filterChannelArray.filter((channel) =>
+        [ChannelName.UPI, ChannelName.BANKING, ChannelName.E_WALLET].includes(
+          channel,
+        ),
+      );
+
+      if (validChannels.length > 0) {
+        queryBuilder.andWhere('withdrawal.channel IN (:...filterChannelArray)', {
+          filterChannelArray: validChannels,
+        });
+      }
     }
 
     // Apply filterMadeVia filter

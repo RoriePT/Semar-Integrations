@@ -361,6 +361,16 @@ export const updateMidtrans = async (
     client_key?: string;
     sandbox_server_key?: string;
     sandbox_client_key?: string;
+    disbursement_merchant_id?: string;
+    disbursement_creator_api_key?: string;
+    disbursement_creator_merchant_key?: string;
+    disbursement_approver_api_key?: string;
+    disbursement_approver_merchant_key?: string;
+    sandbox_disbursement_merchant_id?: string;
+    sandbox_disbursement_creator_api_key?: string;
+    sandbox_disbursement_creator_merchant_key?: string;
+    sandbox_disbursement_approver_api_key?: string;
+    sandbox_disbursement_approver_merchant_key?: string;
   }
 ): Promise<any> => {
   let payload = {};
