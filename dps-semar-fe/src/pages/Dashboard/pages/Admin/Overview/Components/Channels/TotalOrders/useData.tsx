@@ -15,6 +15,7 @@ const useData = () => {
   const [payinData, setPayinData] = useState({
     orders: [
       { name: "UPI", value: 0, color: "indigo.6", key: "upi" },
+      { name: "QRIS", value: 0, color: "teal.6", key: "qris" },
       { name: "Netbanking", value: 0, color: "brand.6", key: "netBanking" },
       { name: "E-wallet", value: 0, color: "green.6", key: "eWallet" },
     ],
@@ -27,7 +28,23 @@ const useData = () => {
         BenakPay: 0,
         PayU: 0,
         Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
         key: "upi",
+      },
+      {
+        channel: "QRIS",
+        "Member Channels": 0,
+        PhonePe: 0,
+        Razorpay: 0,
+        BenakPay: 0,
+        PayU: 0,
+        Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
+        key: "qris",
       },
       {
         channel: "Netbanking",
@@ -37,6 +54,9 @@ const useData = () => {
         BenakPay: 0,
         PayU: 0,
         Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
         key: "netBanking",
       },
       {
@@ -47,6 +67,9 @@ const useData = () => {
         BenakPay: 0,
         PayU: 0,
         Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
         key: "eWallet",
       },
     ],
@@ -55,6 +78,7 @@ const useData = () => {
   const [payoutData, setPayoutData] = useState({
     orders: [
       { name: "UPI", value: 0, color: "indigo.6", key: "upi" },
+      { name: "QRIS", value: 0, color: "teal.6", key: "qris" },
       { name: "Netbanking", value: 0, color: "brand.6", key: "netBanking" },
       { name: "E-wallet", value: 0, color: "green.6", key: "eWallet" },
     ],
@@ -67,7 +91,23 @@ const useData = () => {
         BenakPay: 0,
         PayU: 0,
         Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
         key: "upi",
+      },
+      {
+        channel: "QRIS",
+        "Member Channels": 0,
+        PhonePe: 0,
+        Razorpay: 0,
+        BenakPay: 0,
+        PayU: 0,
+        Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
+        key: "qris",
       },
       {
         channel: "Netbanking",
@@ -77,6 +117,9 @@ const useData = () => {
         BenakPay: 0,
         PayU: 0,
         Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
         key: "netBanking",
       },
       {
@@ -87,6 +130,9 @@ const useData = () => {
         BenakPay: 0,
         PayU: 0,
         Cashfree: 0,
+        DOKU: 0,
+        Midtrans: 0,
+        Xendit: 0,
         key: "eWallet",
       },
     ],
@@ -95,7 +141,7 @@ const useData = () => {
   const mapWithObject1 = (arr, obj) => {
     const temp = [...arr];
     for (const iterator of temp) {
-      iterator.value = obj[iterator.key];
+      iterator.value = obj[iterator.key] || 0;
     }
     return temp;
   };
@@ -103,12 +149,16 @@ const useData = () => {
   const mapWithObject2 = (arr, obj) => {
     const temp = [...arr];
     for (const iterator of temp) {
-      iterator["Member Channels"] = obj[iterator.key].memberChannel;
-      iterator["PhonePe"] = obj[iterator.key].phonepe;
-      iterator["Razorpay"] = obj[iterator.key].razorpay;
-      iterator["BenakPay"] = obj[iterator.key].uniqPay;
-      iterator["PayU"] = obj[iterator.key].payU;
-      iterator["Cashfree"] = obj[iterator.key].cashfree;
+      iterator["Member Channels"] = obj[iterator.key]?.memberChannel || 0;
+      iterator["PhonePe"] = obj[iterator.key]?.phonepe || 0;
+      iterator["Razorpay"] = obj[iterator.key]?.razorpay || 0;
+      iterator["BenakPay"] =
+        obj[iterator.key]?.uniqPay || obj[iterator.key]?.uniqpay || 0;
+      iterator["PayU"] = obj[iterator.key]?.payU || 0;
+      iterator["Cashfree"] = obj[iterator.key]?.cashfree || 0;
+      iterator["DOKU"] = obj[iterator.key]?.doku || 0;
+      iterator["Midtrans"] = obj[iterator.key]?.midtrans || 0;
+      iterator["Xendit"] = obj[iterator.key]?.xendit || 0;
     }
     return temp;
   };

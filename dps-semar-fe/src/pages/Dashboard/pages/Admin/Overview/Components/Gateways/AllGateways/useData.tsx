@@ -26,6 +26,9 @@ const useData = () => {
       { name: "BenakPay", value: 0, color: "orange.6", key: "uniqpay" },
       { name: "PayU", value: 0, color: "violet.6", key: "payU" },
       { name: "Cashfree", value: 0, color: "yellow.6", key: "cashfree" },
+      { name: "DOKU", value: 0, color: "teal.6", key: "doku" },
+      { name: "Midtrans", value: 0, color: "blue.6", key: "midtrans" },
+      { name: "Xendit", value: 0, color: "pink.6", key: "xendit" },
     ],
     distribution: [
       {
@@ -76,6 +79,27 @@ const useData = () => {
         Netbanking: 0,
         "E-wallet": 0,
         key: "cashfree",
+      },
+      {
+        gateway: "DOKU",
+        UPI: 0,
+        Netbanking: 0,
+        "E-wallet": 0,
+        key: "doku",
+      },
+      {
+        gateway: "Midtrans",
+        UPI: 0,
+        Netbanking: 0,
+        "E-wallet": 0,
+        key: "midtrans",
+      },
+      {
+        gateway: "Xendit",
+        UPI: 0,
+        Netbanking: 0,
+        "E-wallet": 0,
+        key: "xendit",
       },
     ],
   });
@@ -91,9 +115,12 @@ const useData = () => {
       { name: "UPI Vendor", value: 0, color: "cyan.6", key: "upiVendor" },
       { name: "PhonePe", value: 0, color: "brand.6", key: "phonepe" },
       { name: "Razorpay", value: 0, color: "green.6", key: "razorpay" },
-      { name: "BenakPay", value: 0, color: "orange.6", key: "uniquepay" },
-      { name: "PayU", value: 0, color: "violet.6", key: "payu" },
+      { name: "BenakPay", value: 0, color: "orange.6", key: "uniqpay" },
+      { name: "PayU", value: 0, color: "violet.6", key: "payU" },
       { name: "Cashfree", value: 0, color: "yellow.6", key: "cashfree" },
+      { name: "DOKU", value: 0, color: "teal.6", key: "doku" },
+      { name: "Midtrans", value: 0, color: "blue.6", key: "midtrans" },
+      { name: "Xendit", value: 0, color: "pink.6", key: "xendit" },
     ],
     distribution: [
       {
@@ -145,13 +172,34 @@ const useData = () => {
         "E-wallet": 0,
         key: "cashfree",
       },
+      {
+        gateway: "DOKU",
+        UPI: 0,
+        Netbanking: 0,
+        "E-wallet": 0,
+        key: "doku",
+      },
+      {
+        gateway: "Midtrans",
+        UPI: 0,
+        Netbanking: 0,
+        "E-wallet": 0,
+        key: "midtrans",
+      },
+      {
+        gateway: "Xendit",
+        UPI: 0,
+        Netbanking: 0,
+        "E-wallet": 0,
+        key: "xendit",
+      },
     ],
   });
 
   const mapWithObject1 = (arr, obj) => {
     const temp = [...arr];
     for (const item of temp) {
-      item.value = obj[item.key];
+      item.value = obj[item.key] || 0;
     }
     return temp;
   };
@@ -159,9 +207,9 @@ const useData = () => {
   const mapWithObject2 = (arr, obj) => {
     const temp = [...arr];
     for (const item of temp) {
-      item["UPI"] = obj[item.key].upi;
-      item["Netbanking"] = obj[item.key].netBanking;
-      item["E-wallet"] = obj[item.key].eWallet;
+      item["UPI"] = obj[item.key]?.upi || obj[item.key]?.qris || 0;
+      item["Netbanking"] = obj[item.key]?.netBanking || 0;
+      item["E-wallet"] = obj[item.key]?.eWallet || 0;
     }
     return temp;
   };

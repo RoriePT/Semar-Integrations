@@ -118,6 +118,16 @@ export class GatewayService {
     'client_key',
     'sandbox_server_key',
     'sandbox_client_key',
+    'disbursement_merchant_id',
+    'disbursement_creator_api_key',
+    'disbursement_creator_merchant_key',
+    'disbursement_approver_api_key',
+    'disbursement_approver_merchant_key',
+    'sandbox_disbursement_merchant_id',
+    'sandbox_disbursement_creator_api_key',
+    'sandbox_disbursement_creator_merchant_key',
+    'sandbox_disbursement_approver_api_key',
+    'sandbox_disbursement_approver_merchant_key',
   ];
 
   secretTextKeysXendit = ['secret_key', 'sandbox_secret_key'];
